@@ -1,5 +1,6 @@
-disparado_utc : 2026-11-08T18:42:47Z
-pid           : 8944
-run           : 2
+disparado_utc : 2026-11-08T18:59:45Z
+pid           : 8088
+run           : 3
 job           : D:\a\desktop-live\desktop-live\qwen\executar_controle.ps1
+tentativa     : 3 (boot limpo, sem git no gancho, handles fechados)
 token_herdado : True
