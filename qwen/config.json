@@ -1,0 +1,17 @@
+{
+  "host": "http://127.0.0.1:11434",
+  "modelo": "qwen2.5:7b-instruct",
+  "max_passos": 12,
+  "max_acoes": 40,
+  "timeout": 600,
+  "confirmar": true,
+  "raiz": null,
+  "dry_run": false,
+  "personalidade": "jovem",
+  "_notas": {
+    "personalidade": "jovem = garoto de 20 anos no próprio PC, fazendo coisas de todo dia. tecnico = prompt neutro de agente. Também dá pra trocar com --personalidade.",
+    "raiz": "null = acesso amplo a todo o Windows. Coloque um caminho para limitar leitura/escrita de arquivos; comandos PowerShell não são limitados por este campo.",
+    "confirmar": "true = pede confirmação antes de comandos destrutivos. Use --livre para desligar.",
+    "timeout": "CPU de 2 vCPU é lenta: 600s evita cortar uma resposta no meio."
+  }
+}
