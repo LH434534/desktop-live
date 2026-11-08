@@ -1,6 +1,5 @@
-disparado_utc : 2026-11-08T19:14:20Z
-pid           : 5392
-run           : 4
-job           : D:\a\desktop-live\desktop-live\qwen\executar_controle.ps1
-tentativa     : 4 (correcao UnicodeEncodeError cp1252)
-token_herdado : True
+disparado_utc : 2026-11-08T19:32:36Z
+pid : 3932
+run : 5
+tentativa : 5 (cp1252 corrigido, scripts via API)
+scripts_baixados : 5
