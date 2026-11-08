@@ -77,6 +77,10 @@ def info_sistema(args: dict) -> str:
 def executar(args: dict) -> str:
     comando = str(args.get("comando", "")).strip()
     if not comando:
+        # O 7B confunde 'executar' com 'escrever_arquivo' e manda caminho+conteudo.
+        # Redireciona em vez de devolver "comando vazio" e perder a acao.
+        if args.get("caminho") and "conteudo" in args:
+            return "redirecionado -> " + escrever_arquivo(args)
         return "erro: comando vazio"
     timeout = max(5, min(int(args.get("timeout", 60) or 60), 300))
     if not WIN:
