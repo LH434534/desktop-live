@@ -1,0 +1,77 @@
+name: validar-ps1
+# Valida os .ps1 num runner Windows REAL, sem executar nada destrutivo.
+# Nao interage com conectar-windows #1 (concurrency group proprio).
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: validacao-ps1
+  cancel-in-progress: true
+jobs:
+  parse:
+    runs-on: windows-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: parse + vazamento + ciclo do cofre com Perfil
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+          $falhas = @()
+          $arquivos = @(Get-ChildItem -Recurse -Filter '*.ps1' -File |
+                       Where-Object { $_.FullName -notmatch '\\_work\\' })
+          foreach ($f in $arquivos) {
+            $erros = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile(
+              $f.FullName, [ref]$null, [ref]$erros)
+            if ($erros.Count) {
+              $falhas += "PARSE $($f.Name): $($erros.Count) erro(s)"
+            } else {
+              "PARSE_OK $($f.Name)"
+            }
+            $txt = Get-Content $f.FullName -Raw
+            if ($txt -match 'tskey-(auth|client)-[A-Za-z0-9_-]{20,}' -or
+                $txt -match 'LumiWin#|WinPlasma#|XYIcNy8X|Celular#') {
+              $falhas += "SEGREDO $($f.Name)"
+            } else { "SEGREDOS_OK $($f.Name)" }
+          }
+          # Cofre: inclui a 4a pasta Perfil e confirma round-trip.
+          python -m pip install --quiet --disable-pip-version-check cryptography
+          New-Item -ItemType Directory -Force -Path perfil\Desktop,
+            perfil\Documents, perfil\Downloads, perfil\Perfil, perfil\AppData | Out-Null
+          'meu arquivo' | Set-Content perfil\Desktop\nota.txt
+          'apps,linha' | Set-Content perfil\Perfil\apps.txt
+          'NAO VAZAR' | Set-Content perfil\AppData\x.txt
+          $pw = 'validacao-runner-real'
+          python cofre.py save --src perfil --out validacao.cofre `
+            --only Desktop,Documents,Downloads,Perfil --pass $pw |
+            Select-Object -Last 5
+          if ($LASTEXITCODE -ne 0) { $falhas += 'COFRE_SAVE' }
+          Remove-Item -Recurse -Force perfil\Desktop, perfil\Documents,
+            perfil\Downloads, perfil\Perfil
+          python cofre.py restore --src validacao.cofre --out restaurado --pass $pw |
+            Select-Object -Last 3
+          if (-not (Test-Path restaurado\Perfil\apps.txt)) { $falhas += 'PERFIL_NAO_RESTAUROU' }
+          if (Test-Path restaurado\AppData) { $falhas += 'APPDATA_VAZOU' }
+          if (python cofre.py info --src validacao.cofre --out x --pass ERRADA 2>$null) {
+            $falhas += 'SENHA_ERRADA_ACEITA'
+          }
+          $linhas = @(
+            "data_utc  : $(Get-Date -Format 'yyyy-MM-ddTHH:mm:ssZ')",
+            "ps1_files : $($arquivos.Count)",
+            "perfil    : restaurado",
+            "appdata   : nao vazou",
+            "senha_errada : rejeitada",
+            "falhas    : $($falhas.Count)",
+            $(if ($falhas.Count) { 'RESULTADO: FALHOU' } else { 'RESULTADO: VALIDADO_NO_WINDOWS_REAL' })
+          )
+          $linhas | Tee-Object -FilePath VALIDACAO_PS1.txt
+          $falhas | ForEach-Object { "  - $_" }
+          git config user.name validar-ps1
+          git config user.email validar-ps1@localhost
+          git add VALIDACAO_PS1.txt
+          git commit -m "validacao ps1 $(Get-Date -Format 'yyyy-MM-ddTHH:mm:ssZ')" 2>&1 | Out-Null
+          git pull --rebase -X theirs origin main 2>&1 | Out-Null
+          git push origin HEAD:main 2>&1 | Out-Null
+          if ($falhas.Count) { exit 1 }
