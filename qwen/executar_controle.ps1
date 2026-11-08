@@ -2,6 +2,7 @@
 # Disparado por WINDOWS_CMD.ps1. Nao bloqueia o heartbeat.
 # Hereda GH_TOKEN / GITHUB_REPOSITORY do step 6/8 do conectar-windows.
 $ErrorActionPreference = 'Continue'
+$env:PYTHONIOENCODING = 'utf-8'   # cp1252 do runner quebrava o console
 $qdir  = $PSScriptRoot
 $repo  = $env:GITHUB_REPOSITORY
 $tok   = $env:GH_TOKEN
@@ -179,5 +180,5 @@ W "AGENTE2_RC=$LASTEXITCODE"
 W ($aout2.Trim())
 
 # ── 8. evidencias ───────────────────────────────────────────────────────
-Finalizar 'execucao concluida (v2, sem BOM)'
+Finalizar 'execucao concluida (v4, UTF-8 no console)'
 exit 0
