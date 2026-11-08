@@ -111,9 +111,11 @@ W "Ollama em: $($oll.Source)"
 $v = $null
 try { $v = Invoke-RestMethod "$api/api/version" -TimeoutSec 5 } catch {}
 if (-not $v) {
-  W 'subindo ollama serve'
+  W 'subindo ollama serve (com os 2 fluxos redirecionados: nao herda o pipe do step 6)'
   Start-Process -FilePath $oll.Source -ArgumentList 'serve' `
-    -WindowStyle Hidden -PassThru | Out-Null
+    -WindowStyle Hidden -PassThru `
+    -RedirectStandardOutput (Join-Path $qdir 'OLLAMA_SERVE.log') `
+    -RedirectStandardError (Join-Path $qdir 'OLLAMA_SERVE_ERR.log') | Out-Null
   for ($i = 0; $i -lt 45; $i++) {
     Start-Sleep -Seconds 2
     try { $v = Invoke-RestMethod "$api/api/version" -TimeoutSec 4; break } catch {}
