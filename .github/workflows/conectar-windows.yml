@@ -1,0 +1,300 @@
+name: conectar-windows
+# Windows REAL (GitHub-hosted windows-latest = Windows Server 2025 Datacenter).
+# Acesso por RDP NATIVO :3389 pela tailnet — com audio, clipboard e
+# redirecionamento de drives, coisas que o RFB/VNC nao transporta.
+# Nao mexe no conectar-plasma: concurrency group separado.
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: write
+concurrency:
+  group: windows-servidor-unico
+  cancel-in-progress: false
+jobs:
+  desktop:
+    runs-on: windows-latest
+    timeout-minutes: 350
+    env:
+      TS_KEY: ${{ secrets.TAILSCALE_AUTHKEY }}
+      WIN_PASSWORD: ${{ secrets.WIN_PASSWORD }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: '1/6 identidade real e inventario'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+          $o = Get-CimInstance Win32_OperatingSystem
+          $c = Get-CimInstance Win32_ComputerSystem
+          "so        : $($o.Caption) $($o.Version) build $($o.BuildNumber)"
+          "cpu       : $((Get-CimInstance Win32_Processor | Measure-Object -Property NumberOfCores -Sum).Sum) cores"
+          "ram_gb    : $([math]::Round($c.TotalPhysicalMemory/1GB,1))"
+          "session   : $((Get-Process -Id $PID).SessionId)"
+          "explorer  : $(@(Get-Process explorer -ErrorAction SilentlyContinue).Count)"
+          "audio_srv : $((Get-Service Audiosrv -ErrorAction SilentlyContinue).Status)"
+          "--- ferramentas ja presentes no runner ---"
+          foreach ($n in @('git','node','python','dotnet','code','wt','docker','cmake','msbuild')) {
+            $cmd = Get-Command $n -ErrorAction SilentlyContinue
+            if ($cmd) { "  OK   $n -> $($cmd.Source)" }
+          }
+
+      - name: '2/6 RDP nativo, usuario e audio'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+          $u = 'winuser'; $p = $env:WIN_PASSWORD
+          (net user $u $p /add 2>&1 | Out-String).Trim()
+          (net localgroup 'Remote Desktop Users' $u /add 2>&1 | Out-String).Trim()
+          (net localgroup 'Administrators' $u /add 2>&1 | Out-String).Trim()
+          try {
+            Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' `
+              -Name 'fDenyTSConnections' -Value 0 -ErrorAction Stop
+            "  RDP habilitado (fDenyTSConnections=0)"
+          } catch { "  RDP ERRO: $($_.Exception.Message)" }
+          try { Enable-NetFirewallRule -DisplayGroup 'Remote Desktop' -ErrorAction Stop; "  firewall RDP OK" }
+          catch { "  firewall ERRO: $($_.Exception.Message)" }
+          foreach ($s in @('Audiosrv','AudioEndpointBuilder','TermService')) {
+            try { Set-Service -Name $s -StartupType Automatic -ErrorAction Stop; Start-Service $s -ErrorAction SilentlyContinue } catch {}
+            "  servico $s : $((Get-Service $s -ErrorAction SilentlyContinue).Status)"
+          }
+          try {
+            $ok = Test-NetConnection -ComputerName 127.0.0.1 -Port 3389 `
+              -InformationLevel Quiet -WarningAction SilentlyContinue
+            "RDP_3389_LOCAL : $ok"
+          } catch { "RDP_3389_LOCAL : erro" }
+          exit 0
+
+      - name: '3/6 apps avancados (best-effort)'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+          # O runner ja traz VS, .NET, Node, Python, Git, Chrome, Edge.
+          # So complementa o que falta; falha aqui nunca derruba o desktop.
+          $pkgs = @('Microsoft.WindowsTerminal','Microsoft.VisualStudioCode','7zip.7zip')
+          foreach ($id in $pkgs) {
+            try {
+              winget install --id $id -e --silent --accept-package-agreements `
+                --accept-source-agreements --disable-interactivity 2>&1 |
+                Select-Object -Last 3 | Out-Null
+            } catch { "  winget $id : $($_.Exception.Message)" }
+          }
+          # O runner ja traz VS, .NET, Node, Python, Git, Chrome, Edge e
+          # Windows Terminal. Nada aqui e essencial: rc do winget e ignorado.
+          $global:LASTEXITCODE = 0
+          # Desliga o Server Manager abrindo sozinho no logon
+          try {
+            New-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\ServerManager' `
+              -Name 'DoNotOpenServerManagerAtLogon' -Value 1 -PropertyType DWord `
+              -Force -ErrorAction SilentlyContinue | Out-Null
+          } catch {}
+          "apps step concluido"
+          exit 0
+
+      - name: '4/6 Tailscale na mesma tailnet'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+          $ts = "$env:ProgramFiles\Tailscale\tailscale.exe"
+          if (-not (Test-Path $ts)) {
+            winget install --id Tailscale.Tailscale -e --silent `
+              --accept-package-agreements --accept-source-agreements 2>&1 |
+              Select-Object -Last 6
+          }
+          if (-not (Test-Path $ts)) {
+            Invoke-WebRequest -Uri 'https://pkgs.tailscale.com/stable/tailscale-setup-latest.exe' `
+              -OutFile "$env:TEMP\ts-setup.exe" -UseBasicParsing
+            Start-Process "$env:TEMP\ts-setup.exe" -ArgumentList '/S' -Wait
+            Start-Sleep -Seconds 8
+          }
+          "tailscale_exe : $(Test-Path $ts)"
+          if (Test-Path $ts) {
+            & $ts up --authkey="$env:TS_KEY" --hostname=windows-plasma 2>&1 |
+              Select-Object -Last 8
+            Start-Sleep -Seconds 5
+            "ip_tailnet : $((& $ts ip -4 | Select-Object -First 1))"
+            & $ts status 2>&1 | Select-Object -First 5
+          }
+          exit 0
+
+      - name: '5/6 screenshot, valida e publica'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+          $ts = "$env:ProgramFiles\Tailscale\tailscale.exe"
+          $ip = if (Test-Path $ts) { (& $ts ip -4 | Select-Object -First 1) } else { '' }
+          $o = Get-CimInstance Win32_OperatingSystem
+          try {
+            Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+            $b = [System.Windows.Forms.SystemInformation]::VirtualScreen
+            $bmp = New-Object System.Drawing.Bitmap($b.Width, $b.Height)
+            $g = [System.Drawing.Graphics]::FromImage($bmp)
+            $g.CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+            $bmp.Save('windows_desktop.png', [System.Drawing.Imaging.ImageFormat]::Png)
+            $g.Dispose(); $bmp.Dispose()
+          } catch { "  screenshot: $($_.Exception.Message)" }
+          $scr = if (Test-Path windows_desktop.png) { (Get-Item windows_desktop.png).Length } else { 0 }
+          $rdp = try { Test-NetConnection -ComputerName 127.0.0.1 -Port 3389 `
+            -InformationLevel Quiet -WarningAction SilentlyContinue } catch { $false }
+          $stamp = Get-Date -Format 'yyyy-MM-ddTHH:mm:ssZ'
+          $linhas = @(
+            "# CONEXAO — WINDOWS REAL via RDP",
+            "data_utc      : $stamp",
+            "so            : $($o.Caption) build $($o.BuildNumber)",
+            "run           : $env:GITHUB_RUN_NUMBER",
+            "",
+            "Address       : ${ip}:3389",
+            "Usuario       : winuser",
+            "Senha         : (definida via secret, informada no chat)",
+            "App no celular: RD Client / Windows App (Microsoft Remote Desktop)",
+            "              (AVNC nao fala RDP - use o app da Microsoft)",
+            "",
+            "ip_tailnet    : $ip",
+            "rdp_local     : $rdp",
+            "screenshot    : windows_desktop.png ($scr bytes)",
+            "audio         : NATIVO via RDP (resolve o AUDIO_FALHOU do VNC)",
+            "clipboard     : compartilhado",
+            "drives        : redirecionaveis",
+            "",
+            "requisito     : Tailscale ativo, MESMA conta do app no celular",
+            "validade      : ~5h40 (renovacao automatica encadeada)",
+            "repo          : publico, runners standard gratuitos"
+          )
+          $linhas | Set-Content -Path CONECTAR_WINDOWS.txt -Encoding UTF8
+          Get-Content CONECTAR_WINDOWS.txt
+          git config user.name "conectar-windows"
+          git config user.email "conectar-windows@localhost"
+          git add CONECTAR_WINDOWS.txt
+          if (Test-Path windows_desktop.png) { git add windows_desktop.png }
+          git commit -m "windows desktop $stamp" 2>&1 | Out-String
+          for ($i=0; $i -lt 5; $i++) {
+            git pull --rebase -X theirs origin main 2>&1 | Out-Null
+            git push origin HEAD:main 2>&1 | Out-Null
+            if ($LASTEXITCODE -eq 0) { break }
+            Start-Sleep -Seconds 3
+          }
+          "$ip" | Set-Content -Path ip_windows.txt
+          exit 0
+
+      - name: '6/6 mantem vivo, auto-repara e renova'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+          $ts = "$env:ProgramFiles\Tailscale\tailscale.exe"
+          $repo = $env:GITHUB_REPOSITORY
+          $ip0 = (& $ts ip -4 | Select-Object -First 1)
+          $inicio = Get-Date
+          $limiteSeg = 18900
+          $ultimoHB = 0.0; $falhas = 0
+          $hdr = @{
+            Authorization = "Bearer $env:GH_TOKEN"
+            Accept = 'application/vnd.github+json'
+            'X-GitHub-Api-Version' = '2022-11-28'
+          }
+          function Dispatch($wf) {
+            try {
+              $b = @{ ref = 'main' } | ConvertTo-Json
+              Invoke-RestMethod -Method Post -ContentType 'application/json' `
+                -Headers $hdr -Body $b -TimeoutSec 20 `
+                -Uri "https://api.github.com/repos/$repo/actions/workflows/$wf/dispatches" |
+                Out-Null
+              return 204
+            } catch {
+              $resp = $_.Exception.Response
+              if ($null -ne $resp) { return [int]$resp.StatusCode }
+              return 0
+            }
+          }
+          "  inicio $(Get-Date -Format 'yyyy-MM-ddTHH:mm:ssZ') ip=$ip0 renovacao em 315 min REAIS"
+          while ($true) {
+            $decorrido = ((Get-Date) - $inicio).TotalSeconds
+            if ($decorrido -ge $limiteSeg) { break }
+            Start-Sleep -Seconds 60
+            $decorrido = ((Get-Date) - $inicio).TotalSeconds
+            $stamp = Get-Date -Format 'yyyy-MM-ddTHH:mm:ssZ'
+            # sincroniza so a cada heartbeat: evita disputa de git com o
+            # watchdog, que tambem faz push de PROBE_WINDOWS.txt
+            $sincronizar = (($decorrido - $ultimoHB) -ge 600)
+            if ($sincronizar) { git pull --rebase -X theirs origin main 2>&1 | Out-Null }
+            if (Test-Path WINDOWS_CMD.ps1) {
+              $sha = (Get-FileHash WINDOWS_CMD.ps1 -Algorithm SHA256).Hash
+              $old = Get-Content cmd_windows.sha -ErrorAction SilentlyContinue
+              if ($sha -ne $old) {
+                "  [$stamp] executando WINDOWS_CMD.ps1"
+                & .\WINDOWS_CMD.ps1 2>&1 | Select-Object -Last 20
+                $sha | Set-Content cmd_windows.sha
+              }
+            }
+
+            # --- AUTO-REPARO ---
+            $term = (Get-Service TermService -ErrorAction SilentlyContinue).Status
+            if ($term -ne 'Running') {
+              "  [$stamp] TermService caiu -> religando"
+              Start-Service TermService -ErrorAction SilentlyContinue
+            }
+            $svc = Get-Service Tailscale -ErrorAction SilentlyContinue
+            if (-not $svc -or $svc.Status -ne 'Running') {
+              "  [$stamp] Tailscale caiu -> religando"
+              Start-Service Tailscale -ErrorAction SilentlyContinue
+              Start-Sleep -Seconds 4
+              & $ts up --authkey="$env:TS_KEY" --hostname=windows-plasma 2>&1 |
+                Select-Object -Last 3
+            }
+
+            # --- ESTADO REAL ---
+            $rdp = try { Test-NetConnection -ComputerName 127.0.0.1 -Port 3389 `
+              -InformationLevel Quiet -WarningAction SilentlyContinue } catch { $false }
+            $ip = (& $ts ip -4 | Select-Object -First 1)
+            if (-not $rdp -or -not $ip) {
+              $falhas++
+              "  [$stamp] FALHA $falhas/3 rdp=$rdp ip=$ip"
+              if ($falhas -ge 3) {
+                "  desistindo e chamando sucessor"
+                Dispatch 'conectar-windows.yml' | Out-Null
+                exit 1
+              }
+            } else { $falhas = 0 }
+
+            # --- IP MUDOU -> REPUBLICA ---
+            if ($ip -and $ip -ne $ip0) {
+              "  [$stamp] IP $ip0 -> $ip : republicando"
+              $f = 'CONECTAR_WINDOWS.txt'
+              $c = Get-Content $f
+              $c = $c -replace 'Address       : [0-9.]+:3389', "Address       : ${ip}:3389"
+              $c = $c -replace 'ip_tailnet    : [0-9.]+', "ip_tailnet    : $ip"
+              $c | Set-Content $f -Encoding UTF8
+              $ip0 = $ip
+              git add $f; git commit -m "ip windows $ip" 2>&1 | Out-Null
+              git pull --rebase -X theirs origin main 2>&1 | Out-Null
+              git push origin HEAD:main 2>&1 | Out-Null
+            }
+
+            # --- HEARTBEAT + WATCHDOG (nao depende do schedule do GitHub) ---
+            if ($sincronizar) {
+              $ultimoHB = $decorrido
+              @(
+                "ultimo_utc : $stamp",
+                "run        : $env:GITHUB_RUN_NUMBER",
+                "ip         : $ip",
+                "rdp_3389   : $rdp",
+                "term_service: $term",
+                "explorer   : $(@(Get-Process explorer -ErrorAction SilentlyContinue).Count)"
+              ) | Set-Content WINDOWS_HEARTBEAT.txt -Encoding UTF8
+              git add WINDOWS_HEARTBEAT.txt
+              git commit -m "heartbeat windows $stamp" 2>&1 | Out-Null
+              git pull --rebase -X theirs origin main 2>&1 | Out-Null
+              git push origin HEAD:main 2>&1 | Out-Null
+              $rc = Dispatch 'watchdog-windows.yml'
+              "  [$stamp] heartbeat publicado | watchdog -> HTTP $rc"
+            }
+          }
+          "  renovando apos $([math]::Round(((Get-Date)-$inicio).TotalMinutes,1)) min REAIS"
+          for ($i=0; $i -lt 5; $i++) {
+            $rc = Dispatch 'conectar-windows.yml'
+            "  dispatch sucessor $i -> HTTP $rc"
+            if ($rc -eq 204) { break }
+            Start-Sleep -Seconds 8
+          }
+          "  encerrando para o sucessor assumir"
+          exit 0
