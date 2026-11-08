@@ -2,7 +2,8 @@ name: conectar-windows
 # Windows REAL (GitHub-hosted windows-latest = Windows Server 2025 Datacenter).
 # Acesso por RDP NATIVO :3389 pela tailnet — com audio, clipboard e
 # redirecionamento de drives, coisas que o RFB/VNC nao transporta.
-# v2: cofre cifrado persiste Desktop/Documents/Downloads entre boots.
+# v3: endereco DNS FIXO (MagicDNS) + Perfil persistente + pre-aquecimento.
+# O IP 100.x ainda muda, mas o NOME nao — e o cofre agora leva 4 pastas.
 # Nao mexe no conectar-plasma: concurrency group separado.
 on:
   workflow_dispatch:
@@ -24,7 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: '0/7 restaura o cofre persistente'
+      - name: '0/8 restaura o cofre persistente'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Continue'
@@ -41,7 +42,31 @@ jobs:
           exit 0
 
 
-      - name: '1/7 identidade real e inventario'
+      - name: '0b/8 reaplica o perfil do dono (best-effort)'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+          $p = "C:\Users\winuser\Perfil"
+          if (Test-Path "$p\IDENTIDADE.txt") {
+            "perfil restaurado:"; Get-Content "$p\IDENTIDADE.txt" | Select-Object -First 6
+          }
+          # Lista editavel pelo proprio dono: um ID winget por linha.
+          if (Test-Path "$p\REINSTALAR.txt") {
+            Get-Content "$p\REINSTALAR.txt" |
+              Where-Object { $_ -match '\S' -and $_ -notmatch '^\s*#' } |
+              Select-Object -First 6 | ForEach-Object {
+                $id = $_.Trim()
+                try {
+                  winget install --id $id -e --silent --accept-package-agreements `
+                    --accept-source-agreements --disable-interactivity 2>&1 |
+                    Select-Object -Last 2 | Out-Null
+                  "  reaplicado: $id"
+                } catch { "  pulado: $id" }
+              }
+          }
+          exit 0
+
+      - name: '1/8 identidade real e inventario'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Continue'
@@ -59,7 +84,7 @@ jobs:
             if ($cmd) { "  OK   $n -> $($cmd.Source)" }
           }
 
-      - name: '2/7 RDP nativo, usuario e audio'
+      - name: '2/8 RDP nativo, usuario e audio'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Continue'
@@ -85,7 +110,7 @@ jobs:
           } catch { "RDP_3389_LOCAL : erro" }
           exit 0
 
-      - name: '3/7 apps avancados (best-effort)'
+      - name: '3/8 apps avancados (best-effort)'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Continue'
@@ -111,7 +136,7 @@ jobs:
           "apps step concluido"
           exit 0
 
-      - name: '4/7 Tailscale na mesma tailnet'
+      - name: '4/8 Tailscale na mesma tailnet'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Continue'
@@ -137,12 +162,17 @@ jobs:
           }
           exit 0
 
-      - name: '5/7 screenshot, valida e publica'
+      - name: '5/8 screenshot, valida e publica'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Continue'
           $ts = "$env:ProgramFiles\Tailscale\tailscale.exe"
           $ip = if (Test-Path $ts) { (& $ts ip -4 | Select-Object -First 1) } else { '' }
+          # MagicDNS: nome ESTAVEL mesmo quando o IP 100.x muda no proximo boot.
+          $dns = if (Test-Path $ts) {
+            try { (& $ts status --json | ConvertFrom-Json).Self.DNSName } catch { '' }
+          } else { '' }
+          if (-not $dns) { $dns = $ip }
           $o = Get-CimInstance Win32_OperatingSystem
           try {
             Add-Type -AssemblyName System.Windows.Forms, System.Drawing
@@ -164,12 +194,14 @@ jobs:
             "run           : $env:GITHUB_RUN_NUMBER",
             "",
             "Address       : ${ip}:3389",
+            "Host FIXO     : $dns   <- use este, nao muda entre boots",
             "Usuario       : winuser",
             "Senha         : (definida via secret, informada no chat)",
             "App no celular: RD Client / Windows App (Microsoft Remote Desktop)",
             "              (AVNC nao fala RDP - use o app da Microsoft)",
             "",
             "ip_tailnet    : $ip",
+            "dns_tailnet   : $dns",
             "rdp_local     : $rdp",
             "screenshot    : windows_desktop.png ($scr bytes)",
             "audio         : NATIVO via RDP (resolve o AUDIO_FALHOU do VNC)",
@@ -179,7 +211,8 @@ jobs:
             "requisito     : Tailscale ativo, MESMA conta do app no celular",
             "validade      : ~5h40 (renovacao automatica encadeada)",
             "repo          : publico, runners standard gratuitos",
-            "cofre         : estado.cofre (cifrado, restaurado no proximo boot)"
+            "cofre         : estado.cofre (cifrado, 4 pastas, restaurado no boot)",
+            "dono          : edite Perfil/REINSTALAR.txt para apps voltarem sozinhos"
           )
           $linhas | Set-Content -Path CONECTAR_WINDOWS.txt -Encoding UTF8
           Get-Content CONECTAR_WINDOWS.txt
@@ -197,15 +230,19 @@ jobs:
           "$ip" | Set-Content -Path ip_windows.txt
           exit 0
 
-      - name: '6/7 mantem vivo, auto-repara e renova'
+      - name: '6/8 mantem vivo, auto-repara e renova'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Continue'
           $ts = "$env:ProgramFiles\Tailscale\tailscale.exe"
           $repo = $env:GITHUB_REPOSITORY
           $ip0 = (& $ts ip -4 | Select-Object -First 1)
+          $dns0 = try { (& $ts status --json | ConvertFrom-Json).Self.DNSName } catch { $ip0 }
+          if (-not $dns0) { $dns0 = $ip0 }
           $inicio = Get-Date
+          $pre = $false
           $limiteSeg = 18900
+          $preAosSeg = 18000
           $ultimoHB = 0.0; $falhas = 0
           $hdr = @{
             Authorization = "Bearer $env:GH_TOKEN"
@@ -235,6 +272,12 @@ jobs:
             $stamp = Get-Date -Format 'yyyy-MM-ddTHH:mm:ssZ'
             # sincroniza so a cada heartbeat: evita disputa de git com o
             # watchdog, que tambem faz push de PROBE_WINDOWS.txt
+            # Pre-aquecimento: sucessor entra na fila 15 min ANTES do fim.
+            if (-not $pre -and $decorrido -ge $preAosSeg) {
+              $pre = $true
+              $rcPre = Dispatch 'conectar-windows.yml'
+              "  [$stamp] pre-aquecimento do sucessor -> HTTP $rcPre (na fila)"
+            }
             $sincronizar = (($decorrido - $ultimoHB) -ge 600)
             if ($sincronizar) { git pull --rebase -X theirs origin main 2>&1 | Out-Null }
             if (Test-Path WINDOWS_CMD.ps1) {
@@ -283,6 +326,11 @@ jobs:
               $c = Get-Content $f
               $c = $c -replace 'Address       : [0-9.]+:3389', "Address       : ${ip}:3389"
               $c = $c -replace 'ip_tailnet    : [0-9.]+', "ip_tailnet    : $ip"
+              $dns0 = try { (& $ts status --json | ConvertFrom-Json).Self.DNSName } catch { $dns0 }
+              if (-not $dns0) { $dns0 = $ip }
+              $c = $c -replace 'dns_tailnet   : .+', "dns_tailnet   : $dns0"
+              $c = $c -replace 'Host FIXO     : .+<- use este, nao muda entre boots',
+                               "Host FIXO     : $dns0   <- use este, nao muda entre boots"
               $c | Set-Content $f -Encoding UTF8
               $ip0 = $ip
               git add $f; git commit -m "ip windows $ip" 2>&1 | Out-Null
@@ -293,10 +341,29 @@ jobs:
             # --- HEARTBEAT + WATCHDOG (nao depende do schedule do GitHub) ---
             if ($sincronizar) {
               $ultimoHB = $decorrido
+              # --- PERFIL: manifesto de apps + registro, dentro do cofre ---
+              $perfilDir = "C:\Users\winuser\Perfil"
+              try {
+                New-Item -ItemType Directory -Force -Path $perfilDir | Out-Null
+                try { winget list --disable-interactivity 2>&1 |
+                        Select-Object -First 60 |
+                        Set-Content "$perfilDir\apps.txt" } catch {}
+                try { & reg.exe export 'HKLM\SYSTEM\CurrentControlSet\Control\Terminal Server' `
+                        "$perfilDir\rdp.reg" /y 2>&1 | Out-Null } catch {}
+                @(
+                  "gerado_utc : $stamp",
+                  "run        : $env:GITHUB_RUN_NUMBER",
+                  "host_fixo  : $dns0",
+                  "ip         : $ip",
+                  "dono       : LH434534/desktop-live",
+                  "apps       : veja apps.txt",
+                  "registro   : rdp.reg (HKLM Terminal Server)"
+                ) | Set-Content "$perfilDir\IDENTIDADE.txt" -Encoding UTF8
+              } catch { "  [$stamp] perfil: $($_.Exception.Message)" }
               # --- COFRE: disco persiste mesmo depois que o runner morre ---
               try {
                 python cofre.py save --src "C:\Users\winuser" --out estado.cofre `
-                  --pass "$env:COFRE_PASS" --only Desktop,Documents,Downloads 2>&1 |
+                  --pass "$env:COFRE_PASS" --only Desktop,Documents,Downloads,Perfil 2>&1 |
                   Select-Object -Last 4
                 if ($LASTEXITCODE -eq 0 -and (Test-Path estado.cofre)) {
                   git add estado.cofre
@@ -307,6 +374,7 @@ jobs:
                 "ultimo_utc : $stamp",
                 "run        : $env:GITHUB_RUN_NUMBER",
                 "ip         : $ip",
+                "host_fixo : $dns0",
                 "rdp_3389   : $rdp",
                 "term_service: $term",
                 "explorer   : $(@(Get-Process explorer -ErrorAction SilentlyContinue).Count)"
@@ -320,11 +388,15 @@ jobs:
             }
           }
           "  renovando apos $([math]::Round(((Get-Date)-$inicio).TotalMinutes,1)) min REAIS"
+          if ($pre) {
+            "  sucessor ja aguardava na fila desde os 300 min"
+          } else {
           for ($i=0; $i -lt 5; $i++) {
             $rc = Dispatch 'conectar-windows.yml'
             "  dispatch sucessor $i -> HTTP $rc"
             if ($rc -eq 204) { break }
             Start-Sleep -Seconds 8
+          }
           }
           "  encerrando para o sucessor assumir"
           exit 0
