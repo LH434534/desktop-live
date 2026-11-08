@@ -1,0 +1,6 @@
+ultimo_utc : 2026-11-08T13:14:38Z
+run        : 1
+ip         : 100.82.106.44
+rdp_3389   : True
+term_service: Running
+explorer   : 1
