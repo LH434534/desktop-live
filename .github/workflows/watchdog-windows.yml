@@ -1,0 +1,178 @@
+name: watchdog-windows
+# Verificacao REAL do Windows: entra na tailnet e faz o handshake X.224
+# do RDP (Connection Request -> Connection Confirm). Nao confia em
+# "run in_progress". Nunca cancela o conectar-plasma.
+on:
+  schedule:
+    - cron: '*/12 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: write
+concurrency:
+  group: watchdog-windows
+  cancel-in-progress: true
+jobs:
+  vigiar:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 8
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TS_KEY: ${{ secrets.TAILSCALE_AUTHKEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: '1/3 le o IP SEMPRE do main (nao do snapshot do checkout)'
+        run: |
+          set +e
+          python3 - <<'PY'
+          import base64, json, os, re, urllib.request
+          repo = os.environ["GITHUB_REPOSITORY"]
+          u = "https://api.github.com/repos/%s/contents/CONECTAR_WINDOWS.txt?ref=main" % repo
+          r = urllib.request.Request(u, headers={
+              "Authorization": "Bearer " + os.environ["GH_TOKEN"],
+              "Accept": "application/vnd.github+json", "User-Agent": "watchdog-windows"})
+          txt = ""
+          try:
+              d = json.loads(urllib.request.urlopen(r, timeout=20).read())
+              txt = base64.b64decode(d["content"]).decode()
+              print("fonte       : API /contents no main (sempre atual)")
+          except Exception as e:
+              print("fonte       : ERRO", type(e).__name__, str(e)[:90])
+          m = re.search(r"^ip_tailnet\s*:\s*([0-9.]+)", txt, re.M)
+          if not m:
+              m = re.search(r"^Address\s*:\s*([0-9.]+):", txt, re.M)
+          ip = m.group(1) if m else ""
+          print("IP_PUBLICADO:", ip or "nenhum")
+          open(os.environ["GITHUB_ENV"], "a").write("IP=" + ip + "\n")
+          PY
+
+      - name: '2/3 entra na tailnet e handshake RDP X.224'
+        run: |
+          set +e
+          curl -fsSL --max-time 90 https://pkgs.tailscale.com/stable/tailscale_latest_amd64.tgz -o /tmp/ts.tgz
+          tar -xzf /tmp/ts.tgz -C /tmp
+          D=$(find /tmp -maxdepth 1 -type d -name 'tailscale_*_amd64' | head -n1)
+          sudo cp "$D/tailscaled" "$D/tailscale" /usr/local/bin/
+          sudo setsid tailscaled --state=/tmp/ts.state --socket=/tmp/ts.sock \
+            </dev/null >/tmp/tsd.log 2>&1 &
+          sleep 5
+          sudo tailscale --socket=/tmp/ts.sock up --authkey="$TS_KEY" \
+            --hostname=watchdog-windows 2>/tmp/ts_up.log || cat /tmp/ts_up.log
+          python3 - "$IP" <<'PY' > PROBE_WINDOWS.txt 2>&1
+          import socket, sys, time, datetime
+          ip = (sys.argv[1] or '').strip()
+          print("data_utc :", datetime.datetime.now(datetime.timezone.utc).strftime("%FT%TZ"))
+          print("alvo     :", ip or "(nao publicado)")
+          # X.224 Connection Request construido DINAMICAMENTE: o TPKT length
+          # e o length indicator tem de bater com o payload real, senao o
+          # servidor fica esperando bytes e o recv() da timeout (bug anterior).
+          cookie = b"Cookie: mstshash=winuser\r\n"
+          neg = bytes.fromhex("0100080003000000")
+          body = b"\xe0\x00\x00\x00\x00\x00" + cookie + neg
+          li = len(body)
+          total = 4 + 1 + li
+          CR = bytes([0x03, 0x00, (total >> 8) & 0xFF, total & 0xFF, li]) + body
+          print("CR_bytes :", len(CR), "| head:", CR[:8].hex())
+          tcp_ok = False
+          x224_ok = False
+          tentativas = range(1, 4) if ip else []
+          if not ip:
+              print("SEM_DADOS        : True (arquivo nao lido -> NAO religar)")
+          for k in tentativas:
+              try:
+                  s = socket.create_connection((ip, 3389), 8)
+                  tcp_ok = True
+                  s.settimeout(8)
+                  s.sendall(CR)
+                  r = s.recv(64)
+                  print("tentativa %d resposta: %s" % (k, r[:16].hex()))
+                  # 0xd0 = X.224 Connection Confirm (RDP de verdade)
+                  x224_ok = len(r) >= 6 and r[0] == 3 and 0xD0 in r[:8]
+                  s.close()
+                  if x224_ok:
+                      break
+              except Exception as e:
+                  print("tentativa %d erro: %s %s" % (k, type(e).__name__, str(e)[:100]))
+              time.sleep(5)
+          print("TCP_3389_ABERTA  :", tcp_ok)
+          print("RDP_X224_CONFIRM :", x224_ok)
+          # Prova de VIDA = porta aberta. O X.224 e prova de PROTOCOLO e
+          # pode falhar por limitacao do probe (NLA/TLS), nao por queda.
+          print("RDP_ALCANCAVEL   :", tcp_ok)
+          print("ESTADO           :", "OK" if tcp_ok else ("SEM_DADOS" if not ip else "QUEDA"))
+          PY
+          cat PROBE_WINDOWS.txt
+          if grep -q 'ESTADO           : OK' PROBE_WINDOWS.txt; then
+            echo "ALC=1" >> "$GITHUB_ENV"
+          elif grep -q 'ESTADO           : SEM_DADOS' PROBE_WINDOWS.txt; then
+            echo "ALC=2" >> "$GITHUB_ENV"
+          else
+            echo "ALC=0" >> "$GITHUB_ENV"
+          fi
+
+      - name: '3/3 decide - religa so se o RDP realmente caiu'
+        run: |
+          python3 - <<'PY'
+          import json, os, urllib.request, urllib.error, datetime
+          tok = os.environ["GH_TOKEN"]
+          repo = os.environ["GITHUB_REPOSITORY"]
+          base = "https://api.github.com/repos/" + repo
+          H = {"Authorization": "Bearer " + tok, "Accept": "application/vnd.github+json",
+               "User-Agent": "watchdog-windows", "X-GitHub-Api-Version": "2022-11-28"}
+          alc = os.environ.get("ALC")
+          print("estado:", {"1": "OK", "0": "QUEDA", "2": "SEM_DADOS"}.get(alc, "?"))
+
+          def req(m, p, d=None):
+              data = json.dumps(d).encode() if d is not None else None
+              r = urllib.request.Request(base + p, data=data,
+                  headers={**H, "Content-Type": "application/json"}, method=m)
+              try:
+                  with urllib.request.urlopen(r, timeout=20) as x:
+                      return x.status, json.loads(x.read() or b"{}")
+              except urllib.error.HTTPError as e:
+                  return e.code, json.loads(e.read() or b"{}")
+
+          st, d = req("GET", "/actions/workflows/conectar-windows.yml/runs?per_page=5")
+          runs = d.get("workflow_runs", [])
+          ativos = [r for r in runs if r["status"] in ("in_progress", "queued", "waiting", "pending")]
+          print("runs ativos:", [(r["run_number"], r["status"]) for r in ativos])
+          agora = datetime.datetime.now(datetime.timezone.utc)
+          recem = []
+          for r in ativos:
+              try:
+                  cr = datetime.datetime.fromisoformat(r["created_at"].replace("Z", "+00:00"))
+                  mins = (agora - cr).total_seconds() / 60
+                  if mins < 12:
+                      recem.append(r["run_number"])
+              except Exception:
+                  pass
+          print("runs instalando (<12 min):", recem)
+
+          if alc == "1":
+              print("DECISAO  : RDP responde pela rede -> NAO MEXER")
+          elif alc == "2":
+              print("DECISAO  : sem dados de IP -> NAO MEXER (evita falso positivo)")
+          else:
+              print("DECISAO  : RDP NAO responde -> religar")
+              for r in ativos:
+                  if r["status"] == "in_progress" and r["run_number"] not in recem:
+                      c, _ = req("POST", "/actions/runs/%s/cancel" % r["id"])
+                      print("  cancel zumbi #%s -> HTTP %s" % (r["run_number"], c))
+                  elif r["status"] == "in_progress":
+                      print("  #%s ainda instalando -> NAO cancelar" % r["run_number"])
+                  else:
+                      c, _ = req("POST", "/actions/runs/%s/cancel" % r["id"])
+                      print("  limpa fila #%s (%s) -> HTTP %s" % (r["run_number"], r["status"], c))
+              for i in range(5):
+                  c, _ = req("POST", "/actions/workflows/conectar-windows.yml/dispatches", {"ref": "main"})
+                  print("  dispatch -> HTTP", c)
+                  if c == 204:
+                      break
+          PY
+          git config user.name "watchdog-windows"
+          git config user.email "watchdog-windows@localhost"
+          git add PROBE_WINDOWS.txt || true
+          git commit -m "probe windows $(date -u +%FT%TZ)" || true
+          git pull --rebase -X theirs origin main 2>/dev/null || true
+          git push origin HEAD:main || true
