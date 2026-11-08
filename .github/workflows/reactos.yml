@@ -1,0 +1,154 @@
+name: reactos-seu
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: reactos-seu
+  cancel-in-progress: false
+
+jobs:
+  sistema:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 350
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: instalar e baixar ReactOS 0.4.16 (GPL, sem licenca Microsoft)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
+            qemu-system-x86 qemu-utils unzip novnc websockify python3-pil curl
+          mkdir -p /tmp/ros
+          gh release download 0.4.16-release \
+            --repo reactos/reactos \
+            --pattern 'ReactOS-0.4.16-i386.zip' \
+            --dir /tmp/ros
+          unzip -o /tmp/ros/*.zip -d /tmp/ros
+          ISO=$(find /tmp/ros -iname '*.iso' -print -quit)
+          test -n "$ISO"
+          echo "ISO=$ISO" >> "$GITHUB_ENV"
+          echo "iso: $ISO ($(du -h "$ISO" | cut -f1))"
+          qemu-img create -f qcow2 /tmp/ros/disco.qcow2 2G
+          echo "QEMU: $(qemu-system-x86_64 --version | head -1)"
+
+      - name: subir ReactOS em QEMU TCG (sem KVM) + Tailscale + noVNC
+        env:
+          TS_KEY: ${{ secrets.TAILSCALE_AUTHKEY }}
+        run: |
+          set -euo pipefail
+          # Tailscale entra na tailnet DO UTILIZADOR
+          curl -fsSL https://tailscale.com/install.sh | sh
+          sudo tailscale up --authkey="$TS_KEY" --hostname=reactos-seu
+          for i in $(seq 1 40); do
+            TS_IP=$(tailscale ip -4 | head -1 || true)
+            [ -n "$TS_IP" ] && break
+            sleep 3
+          done
+          test -n "$TS_IP"
+          echo "TS_IP=$TS_IP" >> "$GITHUB_ENV"
+
+          # QEMU: aceleracao TCG pura, sem /dev/kvm
+          qemu-system-x86_64 \
+            -name 'ReactOS-do-baby' \
+            -m 512 -smp 1 -accel tcg \
+            -cdrom "$ISO" -hda /tmp/ros/disco.qcow2 -boot d \
+            -device rtl8139,netdev=n0 -netdev user,id=n0 \
+            -vnc 127.0.0.1:0 \
+            -monitor unix:/tmp/ros/mon.sock,server=nowait \
+            -daemonize -pidfile /tmp/ros/qemu.pid
+          sleep 5
+          test -f /tmp/ros/qemu.pid
+          echo "qemu_pid: $(cat /tmp/ros/qemu.pid)"
+
+          # noVNC escuta SOMENTE no IP da tailnet, nunca na internet publica
+          nohup websockify --web=/usr/share/novnc \
+            "$TS_IP:6080" 127.0.0.1:5900 \
+            > /tmp/ros/websockify.log 2>&1 &
+          sleep 3
+          echo "porta tailnet 6080: $(ss -ltn | grep 6080 || echo 'ainda subindo')"
+          echo "porta publica 6080: NAO ESCUTA (bind apenas em $TS_IP)"
+
+      - name: esperar boot e capturar a tela real
+        run: |
+          set -euo pipefail
+          python3 reactos/screendump.py
+          ls -l /tmp/ros/frame.png
+          python3 - <<'PY'
+          from PIL import Image
+          im = Image.open('/tmp/ros/frame.png').convert('RGB')
+          print('frame:', im.size, 'extremos:', im.getextrema())
+          PY
+
+      - name: artefato da tela
+        uses: actions/upload-artifact@v4
+        with:
+          name: reactos-tela
+          path: /tmp/ros/frame.png
+          if-no-files-found: ignore
+
+      - name: publicar endereco e prova
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p reactos
+          cp /tmp/ros/frame.png reactos/ULTIMA_TELA.png
+          cat > reactos/CONECTAR_REACTOS.txt <<EOF
+          # REACTOS 0.4.16 — 100% CODIGO ABERTO, 100% SEU
+          data      : $(date -u +%Y-%m-%dT%H:%M:%SZ)
+          run       : ${{ github.run_number }}
+          SO        : ReactOS 0.4.16 (GPLv2/LGPLv2) — compativel com Windows NT
+          licenca   : NENHUMA da Microsoft. Nao e Windows, nao precisa de chave.
+          host      : $TS_IP
+          browser   : http://$TS_IP:6080/vnc.html
+          vnc       : $TS_IP:5900 (sem senha; so a sua tailnet alcanca)
+          disco     : /tmp/ros/disco.qcow2 (2G, efemero neste runner)
+          validade  : ~5h50 (teto do Actions); renovacao encadeada aos 300 min
+          Hardware  : runner da Microsoft. O SISTEMA e seu; o ferro, nao.
+          EOF
+          git config user.name 'reactos-bot'
+          git config user.email 'reactos-bot@users.noreply.github.com'
+          git add reactos/CONECTAR_REACTOS.txt reactos/ULTIMA_TELA.png
+          git commit -m "ReactOS $(date -u +%H:%M) — $TS_IP" || true
+          git push || true
+          cat reactos/CONECTAR_REACTOS.txt
+
+      - name: coracao + renovacao encadeada (relogio real)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          INICIO=$(date +%s)
+          while true; do
+            MIN=$(( ($(date +%s) - INICIO) / 60 ))
+            IP=$(tailscale ip -4 | head -1 || true)
+            VIVO=no
+            kill -0 "$(cat /tmp/ros/qemu.pid)" 2>/dev/null && VIVO=sim
+            echo "$(date -u +%H:%M:%S) min=$MIN ip=$IP qemu=$VIVO"
+            if [ "$VIVO" != sim ]; then
+              echo "QEMU caiu — religando"
+              qemu-system-x86_64 -m 512 -smp 1 -accel tcg \
+                -cdrom "$ISO" -hda /tmp/ros/disco.qcow2 -boot d \
+                -device rtl8139,netdev=n0 -netdev user,id=n0 \
+                -vnc 127.0.0.1:0 -daemonize \
+                -pidfile /tmp/ros/qemu.pid || true
+            fi
+            if [ "$MIN" -ge 300 ]; then
+              echo "300 min — despachando sucessor"
+              gh workflow run reactos.yml \
+                --repo "${{ github.repository }}" --ref main || true
+              exit 0
+            fi
+            sleep 60
+          done
+
