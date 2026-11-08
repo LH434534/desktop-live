@@ -208,7 +208,7 @@ class Agente:
                 return f"Ollama inacessível em {self.ollama.host}: {e}. Rode INICIAR.bat primeiro."
             msg = resp.get("message") or {}
             chamadas = _extrair_chamadas(msg)
-            self.console(f"\n── passo {passo} ──")
+            self.console(f"\n-- passo {passo} --")
             if not chamadas:
                 final = (msg.get("content") or "").strip() or final
                 self.console("Qwen: " + final[:600])
@@ -240,6 +240,14 @@ def carregar_cfg() -> dict:
 
 
 def main():
+    # O console do runner Windows usa cp1252: acentos ok, mas box-drawing/emoji
+    # estouram com UnicodeEncodeError. Reconfigura antes de imprimir qualquer coisa.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            if hasattr(stream, "reconfigure"):
+                stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
     ap = argparse.ArgumentParser(description="Qwen 2.5 7B controlando o Windows")
     ap.add_argument("instrucao", nargs="*", help="O que fazer; vazio = modo interativo")
     ap.add_argument("--host", help="URL do Ollama")
