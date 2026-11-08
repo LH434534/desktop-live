@@ -44,11 +44,35 @@ jobs:
       - name: subir ReactOS em QEMU TCG (sem KVM) + Tailscale + noVNC
         env:
           TS_KEY: ${{ secrets.TAILSCALE_AUTHKEY }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          set -uo pipefail
+          set +e
           LOG=/tmp/ros/step3.log
           : > "$LOG"
-          DIZ() { echo "$*" | tee -a "$LOG"; }
+          DIZ() { echo "$*" >> "$LOG"; echo "$*"; }
+          PUBLICAR() {
+            python3 - <<'PY' >/dev/null 2>&1 || true
+          import os, json, base64, urllib.request, urllib.error
+          T=os.environ['GH_TOKEN']; REPO=os.environ['GITHUB_REPOSITORY']
+          H={'Authorization':'Bearer '+T,'Accept':'application/vnd.github+json',
+             'User-Agent':'yuanbao','Content-Type':'application/json'}
+          U='https://api.github.com/repos/'+REPO+'/contents/reactos/STEP3_LOG.txt'
+          b=open('/tmp/ros/step3.log','rb').read()
+          body={'message':'log do run '+os.environ.get('GITHUB_RUN_NUMBER','?'),
+                'content':base64.b64encode(b).decode(),'branch':'main'}
+          try:
+              r=urllib.request.urlopen(urllib.request.Request(U+'?ref=main',headers=H),timeout=15)
+              body['sha']=json.loads(r.read())['sha']
+          except Exception: pass
+          try:
+              req=urllib.request.Request(U,data=json.dumps(body).encode(),headers=H,method='PUT')
+              urllib.request.urlopen(req,timeout=20)
+          except Exception as e: print('publicar log:',e)
+          PY
+          }
+          trap PUBLICAR EXIT
+          DIZ "=== inicio $(date -u +%H:%M:%S) ==="
+          DIZ "ISO=$ISO"
 
           # Tailscale: FALHA AQUI NAO PODE derrubar o sistema operacional
           DIZ "=== tailscale ==="
@@ -101,28 +125,20 @@ jobs:
           DIZ "portas: $(ss -ltn | grep -E '5900|6080' | tr '\n' ' ')"
           DIZ "vnc_publico: NAO (bind 127.0.0.1:5900)"
 
-      - name: publicar diagnostico (mesmo se algo falhou)
+      - name: ecoar diagnostico (nunca falha)
         if: always()
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
-          set -uo pipefail
-          mkdir -p reactos
-          {
-            echo "# DIAGNOSTICO run ${{ github.run_number }}"
-            echo "data: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            echo "kvm: $(ls -l /dev/kvm 2>&1 | head -1)"
-            echo "qemu: $(qemu-system-x86_64 --version 2>&1 | head -1)"
-            echo "ts_status:"; tailscale status 2>&1 | head -10
-            echo "step3.log:"; tail -60 /tmp/ros/step3.log 2>/dev/null
-            echo "websockify.log:"; tail -20 /tmp/ros/websockify.log 2>/dev/null
-          } > reactos/DIAGNOSTICO.txt
-          git config user.name 'reactos-bot'
-          git config user.email 'reactos-bot@users.noreply.github.com'
-          git add reactos/DIAGNOSTICO.txt
-          git commit -m "diagnostico run ${{ github.run_number }}" || true
-          git push || true
-          cat reactos/DIAGNOSTICO.txt
+          set +e
+          echo "=== DIAGNOSTICO run ${{ github.run_number }} ==="
+          echo "kvm: $(ls -l /dev/kvm 2>&1 | head -1)"
+          echo "qemu: $(qemu-system-x86_64 --version 2>&1 | head -1)"
+          echo "--- step3.log ---"
+          tail -80 /tmp/ros/step3.log 2>/dev/null
+          echo "--- websockify.log ---"
+          tail -20 /tmp/ros/websockify.log 2>/dev/null
+          echo "--- portas ---"
+          ss -ltn 2>/dev/null | grep -E '5900|6080' || true
+          exit 0
 
       - name: esperar boot e capturar a tela real
         run: |
