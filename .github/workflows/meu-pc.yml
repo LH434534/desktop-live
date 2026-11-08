@@ -1,0 +1,52 @@
+name: meu-pc
+# Roda NO COMPUTADOR DO USUARIO (bootstrap-windows.ps1), nao em runner
+# hospedado. Sem teto de 6h por job, sem cota de minutos, disco permanente.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/15 * * * *'
+permissions:
+  contents: write
+concurrency:
+  group: meu-pc-coracao
+  cancel-in-progress: false
+jobs:
+  coracao:
+    runs-on: [self-hosted, meupc, windows]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: estado real da SUA maquina
+        shell: pwsh
+        run: |
+          $ts = "$env:ProgramFiles\Tailscale\tailscale.exe"
+          $ip  = if (Test-Path $ts) { (& $ts ip -4 | Select-Object -First 1) } else { '' }
+          $dns = if (Test-Path $ts) {
+            try { (& $ts status --json | ConvertFrom-Json).Self.DNSName } catch { '' }
+          } else { '' }
+          $rdp = try {
+            Test-NetConnection -ComputerName 127.0.0.1 -Port 3389 `
+              -InformationLevel Quiet -WarningAction SilentlyContinue
+          } catch { $false }
+          $term = (Get-Service TermService -ErrorAction SilentlyContinue).Status
+          $livre = [math]::Round((Get-PSDrive C).Free / 1GB, 1)
+          $estado = if ($rdp -and $ip -and $term -eq 'Running') {
+            'OK — DONO TOTAL NO AR'
+          } else { 'DEGRADADO' }
+          @(
+            "data_utc  : $(Get-Date -Format 'yyyy-MM-ddTHH:mm:ssZ')",
+            "computador: $env:COMPUTERNAME",
+            "host_fixo : $dns",
+            "ip        : $ip",
+            "rdp_3389  : $rdp",
+            "term      : $term",
+            "disco_gb  : $livre livre",
+            "runner    : self-hosted (sem teto de 6h, sem cota)",
+            "ESTADO    : $estado"
+          ) | Tee-Object -FilePath CORACAO_MEU_PC.txt
+          git config user.name meu-pc
+          git config user.email meu-pc@localhost
+          git add CORACAO_MEU_PC.txt
+          git commit -m "coracao meu-pc $(Get-Date -Format 'yyyy-MM-ddTHH:mm:ssZ')" 2>&1 | Out-Null
+          git pull --rebase -X theirs origin main 2>&1 | Out-Null
+          git push origin HEAD:main 2>&1 | Out-Null
