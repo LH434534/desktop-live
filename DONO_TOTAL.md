@@ -13,13 +13,22 @@ Mas o **nome MagicDNS** não troca: `--hostname=windows-plasma` gera um
 `windows-plasma.<sua-tailnet>.ts.net` estável. O `CONECTAR_WINDOWS.txt` e o
 heartbeat agora publicam `Host FIXO` / `host_fixo`.
 
-👉 No Windows App, passe a usar **o nome**, não o número. Quando a máquina
-renovar, você não edita mais nada.
+👉 **Use isto no Windows App, hoje:**
 
-⚠️ **Não verificado ponta a ponta:** a v3 vale a partir do **próximo boot**.
-O job #1 (que está com você agora) fez checkout do código v2 e não foi
-reiniciado de propósito — reiniciar te derrubaria. Então o `dns_tailnet`
-real ainda não foi lido de dentro do seu runner.
+```
+windows-plasma.taild2d531.ts.net
+```
+
+(sem o ponto final; porta 3389, usuário `winuser`)
+
+✅ **Lido de dentro do seu Windows às 14:35 UTC**, pelo gancho
+`WINDOWS_CMD.ps1` — sem reiniciar, sem trocar de IP, sem derrubar o RDP.
+`DNS_FIXO.txt` e `CONECTAR_WINDOWS.txt` já estão atualizados no repo.
+
+⚠️ A v3 (que publica o nome automaticamente em todo boot) vale a partir do
+**próximo boot**. O job #1 fez checkout do código v2 e não foi reiniciado de
+propósito — reiniciar te derrubaria. O nome acima, porém, é o **real** e
+permanece estável porque o `--hostname=windows-plasma` é fixo.
 
 ### 2. O cofre agora leva 4 pastas
 `Desktop`, `Documents`, `Downloads` **e `Perfil`**. O `Perfil` guarda:
@@ -115,12 +124,16 @@ solução segura; clonar state não é.
 ## Verificação desta rodada
 
 - `windows_v3.yml`: YAML parseado, **9 steps**, numeração conferida
-- `validar-ps1.yml`: parse PowerShell **real** num runner Windows, checagem
-  de segredos e round-trip do cofre com 4 pastas (resultado no arquivo
-  `VALIDACAO_PS1.txt`)
+- `validar-ps1 #1` → `success`, **0 falhas**: 1 `.ps1` parseado no Windows
+  real, nenhum segredo vazado, `Perfil` restaurado, `AppData` não vazou,
+  senha errada rejeitada (`VALIDACAO_PS1.txt`)
+- `DNS_FIXO.txt` → `windows-plasma.taild2d531.ts.net.` publicado de dentro
+  do job #1 às 14:35 UTC
 - `bootstrap-windows.ps1` / `meu-pc.yml`: publicados, **não executados** —
   não tenho o seu PC aqui
-- `conectar-windows #1`: **não foi cancelado**, segue `in_progress`
+- `conectar-windows #1`: **não foi cancelado**, segue `in_progress`,
+  heartbeat 14:35, `rdp_3389: True`
+- Varredura: nenhuma passphrase/chave/senha nos arquivos do repo
 
 **Resumo honesto:** hoje você ganhou **nome fixo + memória + identidade de
 perfil + pré-aquecimento**. Faltou exatamente uma coisa para o 10000%:
