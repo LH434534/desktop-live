@@ -231,7 +231,9 @@ class Agente:
 
 def carregar_cfg() -> dict:
     p = BASE / "config.json"
-    cfg = json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
+    # utf-8-sig: o Set-Content -Encoding UTF8 do PowerShell 5.1 grava BOM,
+    # e json.loads com utf-8 puro recusa. Aqui aceita os dois.
+    cfg = json.loads(p.read_text(encoding="utf-8-sig")) if p.exists() else {}
     cfg.setdefault("host", "http://127.0.0.1:11434")
     cfg.setdefault("modelo", "qwen2.5:7b-instruct")
     return cfg
