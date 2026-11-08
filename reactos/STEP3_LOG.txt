@@ -1,0 +1,82 @@
+=== inicio 17:30:15 ===
+ISO=/tmp/ros/ReactOS-0.4.16-i386.iso
+=== tailscale ===
+Installing Tailscale for ubuntu jammy, using method apt
++ sudo mkdir -p --mode=0755 /usr/share/keyrings
++ curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/jammy.noarmor.gpg
++ sudo tee /usr/share/keyrings/tailscale-archive-keyring.gpg
++ sudo chmod 0644 /usr/share/keyrings/tailscale-archive-keyring.gpg
++ curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/jammy.tailscale-keyring.list
++ sudo tee /etc/apt/sources.list.d/tailscale.list
+# Tailscale packages for ubuntu jammy
+deb [signed-by=/usr/share/keyrings/tailscale-archive-keyring.gpg] https://pkgs.tailscale.com/stable/ubuntu jammy main
++ sudo chmod 0644 /etc/apt/sources.list.d/tailscale.list
++ sudo apt-get update
+Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [144 B]
+Hit:2 http://azure.archive.ubuntu.com/ubuntu jammy InRelease
+Hit:6 https://packages.microsoft.com/ubuntu/22.04/prod jammy InRelease
+Hit:3 http://azure.archive.ubuntu.com/ubuntu jammy-updates InRelease
+Hit:4 http://azure.archive.ubuntu.com/ubuntu jammy-backports InRelease
+Hit:5 http://azure.archive.ubuntu.com/ubuntu jammy-security InRelease
+Get:7 https://pkgs.tailscale.com/stable/ubuntu jammy InRelease
+Get:8 https://pkgs.tailscale.com/stable/ubuntu jammy/main amd64 Packages [16.8 kB]
+Get:9 https://pkgs.tailscale.com/stable/ubuntu jammy/main all Packages [351 B]
+Fetched 23.8 kB in 1s (33.4 kB/s)
+Reading package lists...
++ [ -n  ]
++ sudo apt-get install -y tailscale tailscale-archive-keyring
+Reading package lists...
+Building dependency tree...
+Reading state information...
+The following NEW packages will be installed:
+  tailscale tailscale-archive-keyring
+0 upgraded, 2 newly installed, 0 to remove and 34 not upgraded.
+Need to get 40.8 MB of archives.
+After this operation, 78.3 MB of additional disk space will be used.
+Get:1 https://pkgs.tailscale.com/stable/ubuntu jammy/main amd64 tailscale amd64 1.104.5 [40.8 MB]
+Get:2 https://pkgs.tailscale.com/stable/ubuntu jammy/main all tailscale-archive-keyring all 1.35.181 [3082 B]
+Fetched 40.8 MB in 0s (133 MB/s)
+Selecting previously unselected package tailscale.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 266906 files and directories currently installed.)
+Preparing to unpack .../tailscale_1.104.5_amd64.deb ...
+Unpacking tailscale (1.104.5) ...
+Selecting previously unselected package tailscale-archive-keyring.
+Preparing to unpack .../tailscale-archive-keyring_1.35.181_all.deb ...
+Unpacking tailscale-archive-keyring (1.35.181) ...
+Setting up tailscale-archive-keyring (1.35.181) ...
+Setting up tailscale (1.104.5) ...
+Created symlink /etc/systemd/system/multi-user.target.wants/tailscaled.service → /lib/systemd/system/tailscaled.service.
+
+Running kernel seems to be up-to-date.
+
+No services need to be restarted.
+
+No containers need to be restarted.
+
+No user sessions are running outdated binaries.
+
+No VM guests are running outdated hypervisor (qemu) binaries on this host.
++ [ false = true ]
++ set +x
+Installation complete! Log in to start using Tailscale by running:
+
+sudo tailscale up
+TS_IP=100.111.84.26
+100.111.84.26   reactos-seu-2       thiairoh@  linux    -                           
+100.119.28.8    a32-de-thiairo      thiairoh@  android  offline, last seen 3h ago   
+100.119.100.29  cue-046b262ac98b    thiairoh@  linux    offline, last seen 10d ago  
+100.77.44.84    reactos-seu-1       thiairoh@  linux    offline, last seen 5m ago   
+100.107.101.74  reactos-seu         thiairoh@  linux    offline, last seen 8m ago   
+100.115.59.12   watchdog-windows-1  thiairoh@  linux    offline, last seen 33m ago  
+100.82.103.121  watchdog-windows-2  thiairoh@  linux    offline, last seen 23m ago  
+100.85.235.93   watchdog-windows-3  thiairoh@  linux    offline, last seen 13m ago  
+100.83.64.76    watchdog-windows-4  thiairoh@  linux    offline, last seen 3m ago   
+100.126.38.84   watchdog-windows-5  thiairoh@  linux    offline, last seen 1h ago   
+100.119.252.30  watchdog-windows-6  thiairoh@  linux    offline, last seen 43m ago  
+100.103.238.65  watchdog-windows    thiairoh@  linux    offline, last seen 53m ago  
+100.82.106.44   windows-plasma      thiairoh@  windows  -                           
+=== qemu ===
+qemu-system-x86_64: -monitor unix:/tmp/ros/mon.sock,server=nowait: Parameter 'server' expects 'on' or 'off'
+qemu-system-x86_64: -monitor unix:/tmp/ros/mon.sock,server=nowait: parse error: unix:/tmp/ros/mon.sock,server=nowait
+qemu rc=1
+QEMU_NAO_SUBIU
