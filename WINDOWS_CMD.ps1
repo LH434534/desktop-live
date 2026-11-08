@@ -39,7 +39,9 @@ for ($i=0; $i -lt 4; $i++) {
 # --- QWEN 2.5 7B: dispara o controle real UMA unica vez, em BACKGROUND ---
 # O trabalho pesado (instalar + baixar 4.7 GB + rodar o agente) roda em
 # processo separado para NAO bloquear o heartbeat de 10 min.
-$qflag = Join-Path $env:TEMP 'qwen_controle_disparado.flag'
+# v2: flag novo, porque a v1 ja disparou e o BOM quebrou o agente
+Remove-Item (Join-Path $env:TEMP 'qwen_controle_disparado.flag') -ErrorAction SilentlyContinue
+$qflag = Join-Path $env:TEMP 'qwen_controle_v2.flag'
 if (-not (Test-Path $qflag)) {
   $job = Join-Path $PSScriptRoot 'qwen\executar_controle.ps1'
   if (Test-Path $job) {
@@ -66,10 +68,11 @@ if (-not (Test-Path $qflag)) {
         "pid           : $($p.Id)",
         "run           : $env:GITHUB_RUN_NUMBER",
         "job           : $job",
-        "token_herdado : $([bool]$env:GH_TOKEN)"
+        "token_herdado : $([bool]$env:GH_TOKEN)",
+        "tentativa     : 2 (correcao do BOM UTF-8)"
       ) -join "`n"
       $b = @{
-        message = 'qwen: gancho executado no Windows vivo'
+        message = 'qwen: gancho v2 executado (correcao BOM)'
         content = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($txt))
         branch  = 'main'
       }
