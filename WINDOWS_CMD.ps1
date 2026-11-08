@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Continue'
-# v4: SEM git commit/push aqui. O step 6 ja publica o heartbeat sozinho;
-# fazer git dentro do gancho travou o loop na v1 (rebase disputando com a API).
+# v5: traz os scripts corrigidos DIRETO da API (o checkout do run pode ser antigo),
+# grava os bytes UTF-8 sem BOM e re-dispara o controle. Nao reinicia nada.
 $ts = "$env:ProgramFiles\Tailscale\tailscale.exe"
 $ip  = (& $ts ip -4 | Select-Object -First 1)
 $dns = try { (& $ts status --json | ConvertFrom-Json).Self.DNSName } catch { '' }
@@ -26,58 +26,52 @@ if (Test-Path $f) {
     $c | Set-Content $f -Encoding UTF8
   }
 }
-"DNS_FIXO_LOCAL : $dns (sem commit: o heartbeat publica)"
+"DNS_FIXO_LOCAL : $dns"
 
-# --- QWEN 2.5 7B: dispara o controle real UMA vez, em BACKGROUND ---
-Remove-Item (Join-Path $env:TEMP 'qwen_controle_disparado.flag') -ErrorAction SilentlyContinue
-Remove-Item (Join-Path $env:TEMP 'qwen_controle_v2.flag') -ErrorAction SilentlyContinue
-Remove-Item (Join-Path $env:TEMP 'qwen_controle_v4.flag') -ErrorAction SilentlyContinue
-$qflag = Join-Path $env:TEMP 'qwen_controle_v4.flag'
+# --- 1. versao corrigida sem depender do checkout ---
+$hj = @{
+  Authorization = "Bearer $env:GH_TOKEN"
+  Accept = 'application/vnd.github+json'
+  'User-Agent' = 'qwen-v5'
+  'X-GitHub-Api-Version' = '2022-11-28'
+}
+$qdir = Join-Path $PSScriptRoot 'qwen'
+New-Item -ItemType Directory -Force -Path $qdir | Out-Null
+$baixados = 0
+foreach ($nome in @('agente.py','executar_controle.ps1','ferramentas.py','seguranca.py','config.json')) {
+  try {
+    $uri = "https://api.github.com/repos/$env:GITHUB_REPOSITORY/contents/qwen/$nome"
+    $r = Invoke-RestMethod -Uri $uri -Headers $hj -Method Get -TimeoutSec 25
+    $bytes = [Convert]::FromBase64String(($r.content -replace '\s',''))
+    [IO.File]::WriteAllBytes((Join-Path $qdir $nome), $bytes)
+    $baixados++
+  } catch { "QWEN_DOWNLOAD_FALHOU $nome : $($_.Exception.Message)" }
+}
+"QWEN_SCRIPTS_VIA_API : $baixados/5 (bytes UTF-8, sem BOM)"
+
+# --- 2. re-dispara uma unica vez ---
+$qflag = Join-Path $env:TEMP 'qwen_controle_v5.flag'
 if (-not (Test-Path $qflag)) {
-  $job = Join-Path $PSScriptRoot 'qwen\executar_controle.ps1'
+  $job = Join-Path $qdir 'executar_controle.ps1'
   if (Test-Path $job) {
     Set-Content $qflag $stamp -Encoding UTF8
-    $so = Join-Path $PSScriptRoot 'qwen\QWEN_STDOUT.log'
-    $se = Join-Path $PSScriptRoot 'qwen\QWEN_STDERR.log'
+    $so = Join-Path $qdir 'QWEN_STDOUT.log'
+    $se = Join-Path $qdir 'QWEN_STDERR.log'
     $p = Start-Process powershell -WindowStyle Hidden -PassThru `
-      -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$job`"") `
+      -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File',"`"$job`"") `
       -RedirectStandardOutput $so -RedirectStandardError $se
-    "QWEN_DISPARADO_V4 : pid=$($p.Id) job=$job"
+    "QWEN_DISPARADO_V5 : pid=$($p.Id)"
     try {
-      $hdr = @{
-        Authorization = "Bearer $env:GH_TOKEN"
-        Accept = 'application/vnd.github+json'
-        'User-Agent' = 'qwen-gancho'
-      }
-      $uri = "https://api.github.com/repos/$env:GITHUB_REPOSITORY/contents/QWEN_DISPARO.txt"
+      $u = "https://api.github.com/repos/$env:GITHUB_REPOSITORY/contents/QWEN_DISPARO.txt"
       $sha = $null
-      try {
-        $sha = (Invoke-RestMethod -Uri $uri -Headers $hdr -Method Get -TimeoutSec 15).sha
-      } catch {}
-      $txt = @(
-        "disparado_utc : $stamp",
-        "pid           : $($p.Id)",
-        "run           : $env:GITHUB_RUN_NUMBER",
-        "job           : $job",
-        "tentativa     : 4 (correcao UnicodeEncodeError cp1252)",
-        "token_herdado : $([bool]$env:GH_TOKEN)"
-      ) -join "`n"
-      $b = @{
-        message = 'qwen: gancho v4 executado'
-        content = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($txt))
-        branch  = 'main'
-      }
+      try { $sha = (Invoke-RestMethod -Uri $u -Headers $hj -Method Get -TimeoutSec 15).sha } catch {}
+      $txt = @("disparado_utc : $stamp","pid : $($p.Id)","run : $env:GITHUB_RUN_NUMBER",
+               "tentativa : 5 (cp1252 corrigido, scripts via API)","scripts_baixados : $baixados") -join "`n"
+      $b = @{ message='qwen: v5 disparado'; content=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($txt)); branch='main' }
       if ($sha) { $b.sha = $sha }
-      Invoke-RestMethod -Uri $uri -Headers $hdr -Method Put -TimeoutSec 20 `
-        -ContentType 'application/json' -Body ($b | ConvertTo-Json) | Out-Null
-      "QWEN_SINAL_PUBLICADO_V4 : pid=$($p.Id)"
-    } catch {
-      "QWEN_SINAL_FALHOU : $($_.Exception.Message)"
-    }
-  } else {
-    "QWEN_AGUARDANDO : $job ainda nao chegou no checkout"
-  }
-} else {
-  "QWEN_JA_DISPARADO_V4 : flag em $qflag"
-}
+      Invoke-RestMethod -Uri $u -Headers $hj -Method Put -TimeoutSec 20 -ContentType 'application/json' -Body ($b | ConvertTo-Json) | Out-Null
+      "QWEN_SINAL_PUBLICADO_V5"
+    } catch { "QWEN_SINAL_FALHOU : $($_.Exception.Message)" }
+  } else { "QWEN_AGUARDANDO : $job nao existe" }
+} else { "QWEN_JA_DISPARADO_V5 : flag em $qflag" }
 exit 0
