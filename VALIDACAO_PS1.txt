@@ -1,0 +1,7 @@
+data_utc  : 2026-11-08T14:26:43Z
+ps1_files : 1
+perfil    : restaurado
+appdata   : nao vazou
+senha_errada : rejeitada
+falhas    : 0
+RESULTADO: VALIDADO_NO_WINDOWS_REAL
