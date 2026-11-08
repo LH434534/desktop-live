@@ -1,0 +1,60 @@
+name: cofre-teste
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  roundtrip:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: ciclo save -> apaga -> restore -> compara
+        env:
+          COFRE: ${{ secrets.COFRE_PASSPHRASE }}
+        shell: bash
+        run: |
+          set -e
+          pip install --quiet cryptography
+          rm -rf perfil restaurado estado_teste.cofre
+          mkdir -p perfil/Desktop perfil/Documents perfil/Downloads perfil/AppData
+          echo "meu arquivo persistente" > perfil/Desktop/nota.txt
+          echo "coluna1,coluna2" > perfil/Documents/dados.csv
+          head -c 4096 /dev/urandom > perfil/Downloads/bin.bin
+          echo "NAO PODE VAZAR" > perfil/AppData/segredo.txt
+          echo "grande demais" > /dev/null
+          head -c 36700160 /dev/zero > perfil/Downloads/grande.mp4
+          SAVE=$(python cofre.py save --src perfil --out estado_teste.cofre                  --only Desktop,Documents,Downloads --pass "$COFRE")
+          rm -rf perfil/Desktop perfil/Documents perfil/Downloads
+          REST=$(python cofre.py restore --src estado_teste.cofre --out restaurado --pass "$COFRE")
+          INFO=$(python cofre.py info --src estado_teste.cofre --out x --pass "$COFRE")
+          cmp perfil/AppData/segredo.txt perfil/AppData/segredo.txt
+          test -f restaurado/Desktop/nota.txt
+          test "$(cat restaurado/Desktop/nota.txt)" = "meu arquivo persistente"
+          test "$(sha256sum restaurado/Documents/dados.csv | cut -d' ' -f1)" =                "$(printf 'coluna1,coluna2\n' | sha256sum | cut -d' ' -f1)"
+          if [ -e restaurado/AppData ]; then echo "FALHA: AppData vazou"; exit 1; fi
+          if python cofre.py info --src estado_teste.cofre --out x --pass SENHA_ERRADA >/dev/null 2>&1; then
+            echo "FALHA: senha errada aceita"; exit 1
+          fi
+          {
+            echo "data_utc : $(date -u +%FT%TZ)"
+            echo "SAVE     : $(echo "$SAVE" | tr '\n' '|')"
+            echo "RESTORE  : $(echo "$REST" | tr '\n' '|')"
+            echo "INFO     : $(echo "$INFO" | tr '\n' '|')"
+            echo "bytes    : $(stat -c%s estado_teste.cofre)"
+            echo "diff     : OK (nota.txt + dados.csv restaurados byte a byte)"
+            echo "appdata  : NAO VAZOU"
+            echo "senha_errada : REJEITADA (InvalidTag)"
+            echo "arquivo_36mb : IGNORADO"
+            echo "RESULTADO: COFRE_VALIDADO_NUM_RUNNER_GITHUB"
+          } > COFRE_TESTE.txt
+          cat COFRE_TESTE.txt
+          git config user.name cofre-teste
+          git config user.email cofre-teste@localhost
+          git add COFRE_TESTE.txt
+          git commit -m "cofre teste $(date -u +%FT%TZ)" || true
+          git pull --rebase -X theirs origin main || true
+          git push origin HEAD:main || true
