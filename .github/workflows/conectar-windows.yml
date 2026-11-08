@@ -2,6 +2,7 @@ name: conectar-windows
 # Windows REAL (GitHub-hosted windows-latest = Windows Server 2025 Datacenter).
 # Acesso por RDP NATIVO :3389 pela tailnet — com audio, clipboard e
 # redirecionamento de drives, coisas que o RFB/VNC nao transporta.
+# v2: cofre cifrado persiste Desktop/Documents/Downloads entre boots.
 # Nao mexe no conectar-plasma: concurrency group separado.
 on:
   workflow_dispatch:
@@ -18,11 +19,29 @@ jobs:
     env:
       TS_KEY: ${{ secrets.TAILSCALE_AUTHKEY }}
       WIN_PASSWORD: ${{ secrets.WIN_PASSWORD }}
+      COFRE_PASS: ${{ secrets.COFRE_PASSPHRASE }}
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: '1/6 identidade real e inventario'
+      - name: '0/7 restaura o cofre persistente'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+          python -m pip install --quiet --disable-pip-version-check cryptography 2>&1 |
+            Select-Object -Last 3
+          if (Test-Path estado.cofre) {
+            python cofre.py restore --src estado.cofre --out "C:\Users\winuser" `
+              --pass "$env:COFRE_PASS" 2>&1 | Select-Object -Last 8
+            "cofre_restaurado : rc=$LASTEXITCODE"
+          } else {
+            "cofre : primeiro boot, nada a restaurar"
+          }
+          # Falha no cofre NUNCA derruba o desktop.
+          exit 0
+
+
+      - name: '1/7 identidade real e inventario'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Continue'
@@ -40,7 +59,7 @@ jobs:
             if ($cmd) { "  OK   $n -> $($cmd.Source)" }
           }
 
-      - name: '2/6 RDP nativo, usuario e audio'
+      - name: '2/7 RDP nativo, usuario e audio'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Continue'
@@ -66,7 +85,7 @@ jobs:
           } catch { "RDP_3389_LOCAL : erro" }
           exit 0
 
-      - name: '3/6 apps avancados (best-effort)'
+      - name: '3/7 apps avancados (best-effort)'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Continue'
@@ -92,7 +111,7 @@ jobs:
           "apps step concluido"
           exit 0
 
-      - name: '4/6 Tailscale na mesma tailnet'
+      - name: '4/7 Tailscale na mesma tailnet'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Continue'
@@ -118,7 +137,7 @@ jobs:
           }
           exit 0
 
-      - name: '5/6 screenshot, valida e publica'
+      - name: '5/7 screenshot, valida e publica'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Continue'
@@ -159,7 +178,8 @@ jobs:
             "",
             "requisito     : Tailscale ativo, MESMA conta do app no celular",
             "validade      : ~5h40 (renovacao automatica encadeada)",
-            "repo          : publico, runners standard gratuitos"
+            "repo          : publico, runners standard gratuitos",
+            "cofre         : estado.cofre (cifrado, restaurado no proximo boot)"
           )
           $linhas | Set-Content -Path CONECTAR_WINDOWS.txt -Encoding UTF8
           Get-Content CONECTAR_WINDOWS.txt
@@ -177,7 +197,7 @@ jobs:
           "$ip" | Set-Content -Path ip_windows.txt
           exit 0
 
-      - name: '6/6 mantem vivo, auto-repara e renova'
+      - name: '6/7 mantem vivo, auto-repara e renova'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Continue'
@@ -273,6 +293,16 @@ jobs:
             # --- HEARTBEAT + WATCHDOG (nao depende do schedule do GitHub) ---
             if ($sincronizar) {
               $ultimoHB = $decorrido
+              # --- COFRE: disco persiste mesmo depois que o runner morre ---
+              try {
+                python cofre.py save --src "C:\Users\winuser" --out estado.cofre `
+                  --pass "$env:COFRE_PASS" --only Desktop,Documents,Downloads 2>&1 |
+                  Select-Object -Last 4
+                if ($LASTEXITCODE -eq 0 -and (Test-Path estado.cofre)) {
+                  git add estado.cofre
+                  "  [$stamp] cofre salvo ($((Get-Item estado.cofre).Length) bytes)"
+                }
+              } catch { "  [$stamp] cofre: $($_.Exception.Message)" }
               @(
                 "ultimo_utc : $stamp",
                 "run        : $env:GITHUB_RUN_NUMBER",
