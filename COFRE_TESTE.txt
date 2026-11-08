@@ -1,10 +1,10 @@
-data_utc : 2026-11-08T14:12:43Z
-SAVE     : arquivos: 4|ignorados: 0|bytes_plain: 36704296|bytes_cifrado: 36720690|saida: estado_teste.cofre|segundos: 0.12|
-RESTORE  : arquivos_restaurados: 4|destino: /home/runner/work/desktop-live/desktop-live/restaurado|segundos: 0.13|
-INFO     : arquivos: 4|bytes_plain: 36720640|segundos: 0.09|
-bytes    : 36720690
+data_utc : 2026-11-08T14:15:01Z
+SAVE     : arquivos: 3|ignorados: 1|bytes_plain: 4136|bytes_cifrado: 20530|saida: estado_teste.cofre|segundos: 0.03|
+RESTORE  : arquivos_restaurados: 3|destino: /home/runner/work/desktop-live/desktop-live/restaurado|segundos: 0.03|
+INFO     : arquivos: 3|bytes_plain: 20480|segundos: 0.02|
+bytes    : 20530
 diff     : OK (nota.txt + dados.csv restaurados byte a byte)
 appdata  : NAO VAZOU
 senha_errada : REJEITADA (InvalidTag)
-arquivo_36mb : IGNORADO
+arquivo_40mb : IGNORADO (verificado no SAVE)
 RESULTADO: COFRE_VALIDADO_NUM_RUNNER_GITHUB
