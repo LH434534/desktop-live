@@ -1,5 +1,5 @@
-disparado_utc : 2026-11-08T19:32:36Z
-pid : 3932
-run : 5
-tentativa : 5 (cp1252 corrigido, scripts via API)
+disparado_utc : 2026-11-08T19:43:32Z
+pid : 2316
+run : 6
+tentativa : 6 (kit por hash, fallback de ferramenta)
 scripts_baixados : 5
