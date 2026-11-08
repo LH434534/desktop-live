@@ -31,8 +31,15 @@ jobs:
               "PARSE_OK $($f.Name)"
             }
             $txt = Get-Content $f.FullName -Raw
-            if ($txt -match 'tskey-(auth|client)-[A-Za-z0-9_-]{20,}' -or
-                $txt -match 'LumiWin#|WinPlasma#|XYIcNy8X|Celular#') {
+            # Padroes genericos: nenhuma credencial literal fica escrita aqui.
+            $padroes = @(
+              'tskey-[A-Za-z0-9_-]{25,}',
+              'github_pat_[A-Za-z0-9_]{30,}',
+              '[A-Z][A-Za-z]{3,10}#[A-Za-z0-9]{4,12}'
+            )
+            $vazou = $false
+            foreach ($p in $padroes) { if ($txt -match $p) { $vazou = $true } }
+            if ($vazou) {
               $falhas += "SEGREDO $($f.Name)"
             } else { "SEGREDOS_OK $($f.Name)" }
           }
