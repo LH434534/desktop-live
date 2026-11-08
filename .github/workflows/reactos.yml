@@ -158,32 +158,59 @@ jobs:
           path: /tmp/ros/frame.png
           if-no-files-found: ignore
 
-      - name: publicar endereco e prova
+      - name: publicar endereco e prova (via API, sem git push)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          mkdir -p reactos
-          cp /tmp/ros/frame.png reactos/ULTIMA_TELA.png
-          cat > reactos/CONECTAR_REACTOS.txt <<EOF
-          # REACTOS 0.4.16 — 100% CODIGO ABERTO, 100% SEU
-          data      : $(date -u +%Y-%m-%dT%H:%M:%SZ)
-          run       : ${{ github.run_number }}
+          python3 - <<'PY'
+          import os, json, base64, urllib.request, datetime
+          T = os.environ['GH_TOKEN']; REPO = os.environ['GITHUB_REPOSITORY']
+          IP = os.environ.get('TS_IP', 'SEM_TAILSCALE')
+          H = {'Authorization':'Bearer '+T,
+               'Accept':'application/vnd.github+json',
+               'User-Agent':'yuanbao','Content-Type':'application/json'}
+          BASE = 'https://api.github.com/repos/'+REPO+'/contents/'
+
+          def put(path, data, msg):
+              u = BASE + path
+              body = {'message': msg,
+                      'content': base64.b64encode(data).decode(),
+                      'branch': 'main'}
+              try:
+                  r = urllib.request.urlopen(
+                      urllib.request.Request(u+'?ref=main', headers=H), timeout=15)
+                  body['sha'] = json.loads(r.read())['sha']
+              except Exception:
+                  pass
+              req = urllib.request.Request(
+                  u, data=json.dumps(body).encode(), headers=H, method='PUT')
+              with urllib.request.urlopen(req, timeout=30) as x:
+                  print('publicado', path, x.status)
+
+          png = open('/tmp/ros/frame.png','rb').read()
+          from PIL import Image
+          im = Image.open('/tmp/ros/frame.png').convert('RGB')
+          ext = im.getextrema()
+
+          txt = f"""# REACTOS 0.4.16 — 100% CODIGO ABERTO, 100% SEU
+          data      : {datetime.datetime.utcnow().isoformat()}Z
+          run       : {os.environ.get('GITHUB_RUN_NUMBER','?')}
           SO        : ReactOS 0.4.16 (GPLv2/LGPLv2) — compativel com Windows NT
           licenca   : NENHUMA da Microsoft. Nao e Windows, nao precisa de chave.
-          host      : $TS_IP
-          browser   : http://$TS_IP:6080/vnc.html
-          vnc       : $TS_IP:5900 (sem senha; so a sua tailnet alcanca)
+          host      : {IP}
+          browser   : http://{IP}:6080/vnc.html
+          vnc       : {IP}:5900 (sem senha; so a sua tailnet alcanca)
+          tela      : {im.size[0]}x{im.size[1]}  png={len(png)} bytes
+          pixels    : min={ext[0][0]} max={ext[0][1]} (prova de que nao e tela preta)
           disco     : /tmp/ros/disco.qcow2 (2G, efemero neste runner)
           validade  : ~5h50 (teto do Actions); renovacao encadeada aos 300 min
-          Hardware  : runner da Microsoft. O SISTEMA e seu; o ferro, nao.
-          EOF
-          git config user.name 'reactos-bot'
-          git config user.email 'reactos-bot@users.noreply.github.com'
-          git add reactos/CONECTAR_REACTOS.txt reactos/ULTIMA_TELA.png
-          git commit -m "ReactOS $(date -u +%H:%M) — $TS_IP" || true
-          git push || true
-          cat reactos/CONECTAR_REACTOS.txt
+          hardware  : runner da Microsoft. O SISTEMA e seu; o ferro, nao.
+          """
+          print(txt)
+          put('reactos/CONECTAR_REACTOS.txt', txt.encode(), 'ReactOS endereco '+IP)
+          put('reactos/ULTIMA_TELA.png', png, 'ReactOS tela real '+IP)
+          PY
 
       - name: coracao + renovacao encadeada (relogio real)
         env:
