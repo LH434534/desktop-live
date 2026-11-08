@@ -1,13 +1,13 @@
 # REACTOS 0.4.16 — 100% CODIGO ABERTO, 100% SEU
-data      : 2026-11-08T17:44:59.713239Z
-run       : 6
+data      : 2026-11-08T17:49:51.976333Z
+run       : 7
 SO        : ReactOS 0.4.16 (GPLv2/LGPLv2) — compativel com Windows NT
 licenca   : NENHUMA da Microsoft. Nao e Windows, nao precisa de chave.
-host      : 100.70.248.91
-browser   : http://100.70.248.91:6080/vnc.html
-vnc       : 100.70.248.91:5900 (sem senha; so a sua tailnet alcanca)
-tela      : 640x480  png=15873 bytes
-pixels    : min=0 max=247 (prova de que nao e tela preta)
+host      : 100.79.171.38
+browser   : http://100.79.171.38:6080/vnc.html
+vnc       : 100.79.171.38:5900 (sem senha; so a sua tailnet alcanca)
+tela      : 800x600  png=4243 bytes
+pixels    : min=0 max=255 (prova de que nao e tela preta)
 disco     : /tmp/ros/disco.qcow2 (2G, efemero neste runner)
 validade  : ~5h50 (teto do Actions); renovacao encadeada aos 300 min
 hardware  : runner da Microsoft. O SISTEMA e seu; o ferro, nao.
