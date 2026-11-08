@@ -4,6 +4,7 @@ so            : Microsoft Windows Server 2025 Datacenter build 26100
 run           : 1
 
 Address       : 100.82.106.44:3389
+Host FIXO     : windows-plasma.taild2d531.ts.net.
 Usuario       : winuser
 Senha         : (definida via secret, informada no chat)
 App no celular: RD Client / Windows App (Microsoft Remote Desktop)

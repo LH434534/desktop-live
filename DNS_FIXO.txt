@@ -1,0 +1,10 @@
+# ENDERECO FIXO — lido de DENTRO do seu Windows
+data_utc  : 2026-11-08T14:35:16Z
+run       : 1
+Host FIXO : windows-plasma.taild2d531.ts.net.
+IP atual  : 100.82.106.44
+Porta     : 3389
+Usuario   : winuser
+Nota      : o IP muda a cada boot; ESTE NOME nao muda.
+App       : Windows App / RD Client -> campo NOME DO COMPUTADOR
+Requisito : Tailscale ativo no celular, mesma conta
