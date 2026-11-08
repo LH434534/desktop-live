@@ -111,7 +111,7 @@ class Ollama:
 
     def chat(self, messages: list, tools=None) -> dict:
         payload = {"model": self.modelo, "messages": messages, "stream": False,
-                   "options": {"temperature": 0.2, "num_predict": 512,
+                   "options": {"temperature": 0.2, "num_predict": 256,
                                "top_p": 0.9, "repeat_penalty": 1.1}}
         if tools:
             payload["tools"] = tools
