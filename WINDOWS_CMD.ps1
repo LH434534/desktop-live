@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Continue'
-# v5: traz os scripts corrigidos DIRETO da API (o checkout do run pode ser antigo),
+# v6: traz os scripts corrigidos DIRETO da API (o checkout do run pode ser antigo),
 # grava os bytes UTF-8 sem BOM e re-dispara o controle. Nao reinicia nada.
 $ts = "$env:ProgramFiles\Tailscale\tailscale.exe"
 $ip  = (& $ts ip -4 | Select-Object -First 1)
@@ -50,7 +50,12 @@ foreach ($nome in @('agente.py','executar_controle.ps1','ferramentas.py','segura
 "QWEN_SCRIPTS_VIA_API : $baixados/5 (bytes UTF-8, sem BOM)"
 
 # --- 2. re-dispara uma unica vez ---
-$qflag = Join-Path $env:TEMP 'qwen_controle_v5.flag'
+$kitHash = (Get-FileHash (Join-Path $qdir 'agente.py') -Algorithm SHA256).Hash
+$flagDir = Join-Path $env:TEMP 'qwen_kit_flags'
+New-Item -ItemType Directory -Force -Path $flagDir | Out-Null
+$qflag = Join-Path $flagDir "$kitHash.flag"
+"QWEN_KIT_HASH : $kitHash  flag=$qflag"
+
 if (-not (Test-Path $qflag)) {
   $job = Join-Path $qdir 'executar_controle.ps1'
   if (Test-Path $job) {
@@ -60,18 +65,18 @@ if (-not (Test-Path $qflag)) {
     $p = Start-Process powershell -WindowStyle Hidden -PassThru `
       -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File',"`"$job`"") `
       -RedirectStandardOutput $so -RedirectStandardError $se
-    "QWEN_DISPARADO_V5 : pid=$($p.Id)"
+    "QWEN_DISPARADO_KIT : pid=$($p.Id)"
     try {
       $u = "https://api.github.com/repos/$env:GITHUB_REPOSITORY/contents/QWEN_DISPARO.txt"
       $sha = $null
       try { $sha = (Invoke-RestMethod -Uri $u -Headers $hj -Method Get -TimeoutSec 15).sha } catch {}
       $txt = @("disparado_utc : $stamp","pid : $($p.Id)","run : $env:GITHUB_RUN_NUMBER",
-               "tentativa : 5 (cp1252 corrigido, scripts via API)","scripts_baixados : $baixados") -join "`n"
-      $b = @{ message='qwen: v5 disparado'; content=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($txt)); branch='main' }
+               "tentativa : 6 (kit por hash, fallback de ferramenta)","scripts_baixados : $baixados") -join "`n"
+      $b = @{ message='qwen: kit final disparado'; content=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($txt)); branch='main' }
       if ($sha) { $b.sha = $sha }
       Invoke-RestMethod -Uri $u -Headers $hj -Method Put -TimeoutSec 20 -ContentType 'application/json' -Body ($b | ConvertTo-Json) | Out-Null
-      "QWEN_SINAL_PUBLICADO_V5"
+      "QWEN_SINAL_PUBLICADO_KIT"
     } catch { "QWEN_SINAL_FALHOU : $($_.Exception.Message)" }
   } else { "QWEN_AGUARDANDO : $job nao existe" }
-} else { "QWEN_JA_DISPARADO_V5 : flag em $qflag" }
+} else { "QWEN_JA_DISPARADO_KIT : flag em $qflag" }
 exit 0
