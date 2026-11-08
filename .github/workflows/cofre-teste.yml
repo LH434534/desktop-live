@@ -26,8 +26,9 @@ jobs:
           head -c 4096 /dev/urandom > perfil/Downloads/bin.bin
           echo "NAO PODE VAZAR" > perfil/AppData/segredo.txt
           echo "grande demais" > /dev/null
-          head -c 36700160 /dev/zero > perfil/Downloads/grande.mp4
+          head -c 41943040 /dev/zero > perfil/Downloads/grande.mp4
           SAVE=$(python cofre.py save --src perfil --out estado_teste.cofre                  --only Desktop,Documents,Downloads --pass "$COFRE")
+          echo "$SAVE" | grep -q "ignorados: 1" || { echo "FALHA: arquivo grande nao foi ignorado"; exit 1; }
           rm -rf perfil/Desktop perfil/Documents perfil/Downloads
           REST=$(python cofre.py restore --src estado_teste.cofre --out restaurado --pass "$COFRE")
           INFO=$(python cofre.py info --src estado_teste.cofre --out x --pass "$COFRE")
@@ -48,7 +49,7 @@ jobs:
             echo "diff     : OK (nota.txt + dados.csv restaurados byte a byte)"
             echo "appdata  : NAO VAZOU"
             echo "senha_errada : REJEITADA (InvalidTag)"
-            echo "arquivo_36mb : IGNORADO"
+            echo "arquivo_40mb : IGNORADO (verificado no SAVE)"
             echo "RESULTADO: COFRE_VALIDADO_NUM_RUNNER_GITHUB"
           } > COFRE_TESTE.txt
           cat COFRE_TESTE.txt
