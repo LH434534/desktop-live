@@ -58,7 +58,7 @@ TOOLS = [
     S("falar", "Encerra com uma mensagem para o operador."),
 ]
 
-# ── persona ────────────────────────────────────────────────────────────────
+# -- persona ----------------------------------------------------------------
 # "jovem" = um garoto no SEU computador, fazendo as coisas de todo dia.
 # "tecnico" = o prompt neutro original, se quiser voltar.
 REGRAS_DE_OPERACAO = """Regras que você segue mesmo de bom humor (não são burocracia, é pra não estragar o PC):
