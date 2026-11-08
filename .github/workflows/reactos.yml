@@ -45,19 +45,34 @@ jobs:
         env:
           TS_KEY: ${{ secrets.TAILSCALE_AUTHKEY }}
         run: |
-          set -euo pipefail
-          # Tailscale entra na tailnet DO UTILIZADOR
-          curl -fsSL https://tailscale.com/install.sh | sh
-          sudo tailscale up --authkey="$TS_KEY" --hostname=reactos-seu
-          for i in $(seq 1 40); do
-            TS_IP=$(tailscale ip -4 | head -1 || true)
+          set -uo pipefail
+          LOG=/tmp/ros/step3.log
+          : > "$LOG"
+          DIZ() { echo "$*" | tee -a "$LOG"; }
+
+          # Tailscale: FALHA AQUI NAO PODE derrubar o sistema operacional
+          DIZ "=== tailscale ==="
+          (curl -fsSL https://tailscale.com/install.sh | sh) >>"$LOG" 2>&1 \
+            || DIZ "install.sh rc=$?"
+          sudo tailscale up --authkey="$TS_KEY" --hostname=reactos-seu \
+            >>"$LOG" 2>&1 || DIZ "tailscale up FALHOU rc=$?"
+          TS_IP=""
+          for i in $(seq 1 30); do
+            TS_IP=$(tailscale ip -4 2>>"$LOG" | head -1 || true)
             [ -n "$TS_IP" ] && break
             sleep 3
           done
-          test -n "$TS_IP"
+          if [ -z "$TS_IP" ]; then
+            TS_IP="SEM_TAILSCALE"
+            DIZ "AVISO: sem IP de tailnet — ReactOS continua de pe, sem acesso remoto"
+          fi
           echo "TS_IP=$TS_IP" >> "$GITHUB_ENV"
+          DIZ "TS_IP=$TS_IP"
+          tailscale status >>"$LOG" 2>&1 || true
 
           # QEMU: aceleracao TCG pura, sem /dev/kvm
+          DIZ "=== qemu ==="
+          rm -f /tmp/ros/mon.sock /tmp/ros/qemu.pid
           qemu-system-x86_64 \
             -name 'ReactOS-do-baby' \
             -m 512 -smp 1 -accel tcg \
@@ -65,18 +80,49 @@ jobs:
             -device rtl8139,netdev=n0 -netdev user,id=n0 \
             -vnc 127.0.0.1:0 \
             -monitor unix:/tmp/ros/mon.sock,server=nowait \
-            -daemonize -pidfile /tmp/ros/qemu.pid
+            -daemonize -pidfile /tmp/ros/qemu.pid >>"$LOG" 2>&1
+          DIZ "qemu rc=$?"
           sleep 5
-          test -f /tmp/ros/qemu.pid
-          echo "qemu_pid: $(cat /tmp/ros/qemu.pid)"
+          if [ -f /tmp/ros/qemu.pid ]; then
+            DIZ "qemu_pid: $(cat /tmp/ros/qemu.pid)"
+          else
+            DIZ "QEMU_NAO_SUBIU"; tail -30 "$LOG"; exit 1
+          fi
 
-          # noVNC escuta SOMENTE no IP da tailnet, nunca na internet publica
+          # noVNC: bind no IP da tailnet (ou so localhost se Tailscale falhou)
+          BIND="$TS_IP"
+          [ "$BIND" = "SEM_TAILSCALE" ] && BIND="127.0.0.1"
+          DIZ "=== websockify em $BIND:6080 ==="
           nohup websockify --web=/usr/share/novnc \
-            "$TS_IP:6080" 127.0.0.1:5900 \
+            "$BIND:6080" 127.0.0.1:5900 \
             > /tmp/ros/websockify.log 2>&1 &
           sleep 3
-          echo "porta tailnet 6080: $(ss -ltn | grep 6080 || echo 'ainda subindo')"
-          echo "porta publica 6080: NAO ESCUTA (bind apenas em $TS_IP)"
+          ss -ltn >>"$LOG" 2>&1 || true
+          DIZ "portas: $(ss -ltn | grep -E '5900|6080' | tr '\n' ' ')"
+          DIZ "vnc_publico: NAO (bind 127.0.0.1:5900)"
+
+      - name: publicar diagnostico (mesmo se algo falhou)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          mkdir -p reactos
+          {
+            echo "# DIAGNOSTICO run ${{ github.run_number }}"
+            echo "data: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "kvm: $(ls -l /dev/kvm 2>&1 | head -1)"
+            echo "qemu: $(qemu-system-x86_64 --version 2>&1 | head -1)"
+            echo "ts_status:"; tailscale status 2>&1 | head -10
+            echo "step3.log:"; tail -60 /tmp/ros/step3.log 2>/dev/null
+            echo "websockify.log:"; tail -20 /tmp/ros/websockify.log 2>/dev/null
+          } > reactos/DIAGNOSTICO.txt
+          git config user.name 'reactos-bot'
+          git config user.email 'reactos-bot@users.noreply.github.com'
+          git add reactos/DIAGNOSTICO.txt
+          git commit -m "diagnostico run ${{ github.run_number }}" || true
+          git push || true
+          cat reactos/DIAGNOSTICO.txt
 
       - name: esperar boot e capturar a tela real
         run: |
@@ -131,9 +177,10 @@ jobs:
           INICIO=$(date +%s)
           while true; do
             MIN=$(( ($(date +%s) - INICIO) / 60 ))
-            IP=$(tailscale ip -4 | head -1 || true)
+            IP=$(tailscale ip -4 2>/dev/null | head -1 || true)
+            PID=$(cat /tmp/ros/qemu.pid 2>/dev/null || echo 0)
             VIVO=no
-            kill -0 "$(cat /tmp/ros/qemu.pid)" 2>/dev/null && VIVO=sim
+            [ "$PID" != "0" ] && kill -0 "$PID" 2>/dev/null && VIVO=sim
             echo "$(date -u +%H:%M:%S) min=$MIN ip=$IP qemu=$VIVO"
             if [ "$VIVO" != sim ]; then
               echo "QEMU caiu — religando"
