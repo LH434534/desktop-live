@@ -1,94 +1,75 @@
 === STATUS ===
 
-2026-11-08T18:42:49Z  INICIO | repo=LH434534/desktop-live | run=2 | quem=runneradmin
-2026-11-08T18:42:50Z  disco C livre: 29.97 GB
-2026-11-08T18:42:50Z  whoami: runnervmm7ud1\runneradmin
-2026-11-08T18:42:50Z  Ollama ausente -> winget install -e --id Ollama.Ollama
-2026-11-08T18:44:44Z  winget:    | 
-2026-11-08T18:44:44Z  winget:    / 
-2026-11-08T18:44:44Z  winget:    - 
-2026-11-08T18:44:44Z  winget:    \ 
-2026-11-08T18:44:44Z  winget:                                                                                                                         
-2026-11-08T18:44:44Z  winget: Successfully installed
-2026-11-08T18:44:44Z  Ollama em: C:\Users\runneradmin\AppData\Local\Programs\Ollama\ollama.exe
-2026-11-08T18:44:44Z  ollama --version: Warning: could not connect to a running Ollama instance
-2026-11-08T18:44:44Z  ollama --version: Warning: client version is 0.40.15
-2026-11-08T18:44:48Z  Ollama versao: 0.40.15
-2026-11-08T18:44:48Z  ollama pull qwen2.5:7b-instruct (4.7 GB no 7B, pode levar minutos)
-2026-11-08T18:45:21Z  pull: pulling 2bada8a74506: 100% ΓûòΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûê ΓûÅ 4.7 GB/4.7 GB  198 MB/s      0s[K
-2026-11-08T18:45:21Z  pull: pulling 2f15b3218f05: 100% ΓûòΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûÅ  487 B                         [K
-2026-11-08T18:45:21Z  pull: verifying sha256 digest [K
-2026-11-08T18:45:21Z  pull: writing manifest [K
-2026-11-08T18:45:21Z  pull: success [K[?25h[?2026l
-2026-11-08T18:45:21Z  MODELO_OK: qwen2.5:7b-instruct
-2026-11-08T18:45:21Z  config: modelo=qwen2.5:7b-instruct host=http://127.0.0.1:11434 max_passos=8 personalidade=jovem
-2026-11-08T18:45:21Z  VERIFICAR: /api/chat com tools
-2026-11-08T18:45:21Z  VERIFICAR_RC=1
-2026-11-08T18:45:21Z  python.exe : Traceback (most recent call last):
-At D:\a\desktop-live\desktop-live\qwen\executar_controle.ps1:152 char:9
-+ $vout = & python $agente --verificar 2>&1 | Out-String
-+         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+2026-11-08T18:59:45Z  INICIO | repo=LH434534/desktop-live | run=3 | quem=runneradmin
+2026-11-08T18:59:46Z  disco C livre: 27.07 GB
+2026-11-08T18:59:46Z  whoami: runnervmm7ud1\runneradmin
+2026-11-08T18:59:47Z  Ollama ausente -> winget install -e --id Ollama.Ollama
+2026-11-08T19:01:30Z  winget:    - 
+2026-11-08T19:01:30Z  winget:    \ 
+2026-11-08T19:01:30Z  winget:    | 
+2026-11-08T19:01:30Z  winget:    / 
+2026-11-08T19:01:30Z  winget:                                                                                                                         
+2026-11-08T19:01:30Z  winget: Successfully installed
+2026-11-08T19:01:30Z  Ollama em: C:\Users\runneradmin\AppData\Local\Programs\Ollama\ollama.exe
+2026-11-08T19:01:30Z  ollama --version: Warning: could not connect to a running Ollama instance
+2026-11-08T19:01:30Z  ollama --version: Warning: client version is 0.40.15
+2026-11-08T19:01:36Z  Ollama versao: 0.40.15
+2026-11-08T19:01:36Z  modelos ja presentes: NAME    ID    SIZE    MODIFIED
+2026-11-08T19:01:36Z  ollama pull qwen2.5:7b-instruct (4.7 GB no 7B, pode levar minutos)
+2026-11-08T19:02:14Z  pull: pulling 2bada8a74506: 100% ΓûòΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûê ΓûÅ 4.7 GB/4.7 GB   87 MB/s      0s[K
+2026-11-08T19:02:14Z  pull: pulling 2f15b3218f05: 100% ΓûòΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûêΓûÅ  487 B                         [K
+2026-11-08T19:02:14Z  pull: verifying sha256 digest [K
+2026-11-08T19:02:14Z  pull: writing manifest [K
+2026-11-08T19:02:14Z  pull: success [K[?25h[?2026l
+2026-11-08T19:02:14Z  MODELO_OK: qwen2.5:7b-instruct
+2026-11-08T19:02:14Z  config (sem BOM): modelo=qwen2.5:7b-instruct host=http://127.0.0.1:11434 max_passos=8 personalidade=jovem
+2026-11-08T19:02:14Z  VERIFICAR: /api/chat com tools
+2026-11-08T19:02:49Z  VERIFICAR_RC=0
+2026-11-08T19:02:49Z  ollama versπo: 0.40.15
+tool_calls: ['listar']
+2026-11-08T19:02:49Z  ORDEM: da uma olhada no sistema, cria um arquivo ideia_qwen.txt na area de trabalho C:\Users\winuser\Desktop com uma ideia aleatoria sua e me conta o que voce fez
+2026-11-08T19:04:04Z  AGENTE_RC=1
+2026-11-08T19:04:04Z  python.exe : Traceback (most recent call last):
+At D:\a\desktop-live\desktop-live\qwen\executar_controle.ps1:170 char:9
++ $aout = & python $agente @argsBase $ordem 2>&1 | Out-String
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (Traceback (most recent call last)::String) [], Remot 
    eException
     + FullyQualifiedErrorId : NativeCommandError
  
-  File "D:\a\desktop-live\desktop-live\qwen\agente.py", line 294, in <module>
+  File "D:\a\desktop-live\desktop-live\qwen\agente.py", line 296, in <module>
     main()
-  File "D:\a\desktop-live\desktop-live\qwen\agente.py", line 252, in main
-    cfg = carregar_cfg()
-          ^^^^^^^^^^^^^^
-  File "D:\a\desktop-live\desktop-live\qwen\agente.py", line 234, in carregar_cfg
-    cfg = json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
-          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\json\__init__.py", line 335, in loads
-    raise JSONDecodeError("Unexpected UTF-8 BOM (decode using utf-8-sig)",
-json.decoder.JSONDecodeError: Unexpected UTF-8 BOM (decode using utf-8-sig): line 1 column 1 
-(char 0)
-2026-11-08T18:45:21Z  ORDEM: da uma olhada no sistema, cria um arquivo ideia_qwen.txt na area de trabalho C:\Users\winuser\Desktop com uma ideia aleatoria sua e me conta o que voce fez
-2026-11-08T18:45:22Z  AGENTE_RC=1
-2026-11-08T18:45:22Z  python.exe : Traceback (most recent call last):
-At D:\a\desktop-live\desktop-live\qwen\executar_controle.ps1:159 char:9
-+ $aout = & python $agente $ordem 2>&1 | Out-String
-+         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  File "D:\a\desktop-live\desktop-live\qwen\agente.py", line 280, in main
+    ag.rodar(" ".join(ns.instrucao))
+  File "D:\a\desktop-live\desktop-live\qwen\agente.py", line 211, in rodar
+    self.console(f"\n\u2500\u2500 passo {passo} \u2500\u2500")
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode characters in position 2-3: character maps to 
+<undefined>
+2026-11-08T19:04:04Z  ORDEM2: usa o PowerShell para listar os 5 processos que mais gastam CPU e escreve o resultado em C:\Users\winuser\Desktop\processos_qwen.txt
+2026-11-08T19:04:18Z  AGENTE2_RC=1
+2026-11-08T19:04:18Z  python.exe : Traceback (most recent call last):
+At D:\a\desktop-live\desktop-live\qwen\executar_controle.ps1:177 char:10
++ $aout2 = & python $agente @argsBase $ordem2 2>&1 | Out-String
++          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (Traceback (most recent call last)::String) [], Remot 
    eException
     + FullyQualifiedErrorId : NativeCommandError
  
-  File "D:\a\desktop-live\desktop-live\qwen\agente.py", line 294, in <module>
+  File "D:\a\desktop-live\desktop-live\qwen\agente.py", line 296, in <module>
     main()
-  File "D:\a\desktop-live\desktop-live\qwen\agente.py", line 252, in main
-    cfg = carregar_cfg()
-          ^^^^^^^^^^^^^^
-  File "D:\a\desktop-live\desktop-live\qwen\agente.py", line 234, in carregar_cfg
-    cfg = json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
-          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\json\__init__.py", line 335, in loads
-    raise JSONDecodeError("Unexpected UTF-8 BOM (decode using utf-8-sig)",
-json.decoder.JSONDecodeError: Unexpected UTF-8 BOM (decode using utf-8-sig): line 1 column 1 
-(char 0)
-2026-11-08T18:45:22Z  ORDEM2: usa o PowerShell para listar os 5 processos que mais gastam CPU e escreve o resultado em C:\Users\winuser\Desktop\processos_qwen.txt
-2026-11-08T18:45:22Z  AGENTE2_RC=1
-2026-11-08T18:45:22Z  python.exe : Traceback (most recent call last):
-At D:\a\desktop-live\desktop-live\qwen\executar_controle.ps1:166 char:10
-+ $aout2 = & python $agente $ordem2 2>&1 | Out-String
-+          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : NotSpecified: (Traceback (most recent call last)::String) [], Remot 
-   eException
-    + FullyQualifiedErrorId : NativeCommandError
- 
-  File "D:\a\desktop-live\desktop-live\qwen\agente.py", line 294, in <module>
-    main()
-  File "D:\a\desktop-live\desktop-live\qwen\agente.py", line 252, in main
-    cfg = carregar_cfg()
-          ^^^^^^^^^^^^^^
-  File "D:\a\desktop-live\desktop-live\qwen\agente.py", line 234, in carregar_cfg
-    cfg = json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
-          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\json\__init__.py", line 335, in loads
-    raise JSONDecodeError("Unexpected UTF-8 BOM (decode using utf-8-sig)",
-json.decoder.JSONDecodeError: Unexpected UTF-8 BOM (decode using utf-8-sig): line 1 column 1 
-(char 0)
-2026-11-08T18:45:22Z  FIM: execucao concluida
+  File "D:\a\desktop-live\desktop-live\qwen\agente.py", line 280, in main
+    ag.rodar(" ".join(ns.instrucao))
+  File "D:\a\desktop-live\desktop-live\qwen\agente.py", line 211, in rodar
+    self.console(f"\n\u2500\u2500 passo {passo} \u2500\u2500")
+  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode characters in position 2-3: character maps to 
+<undefined>
+2026-11-08T19:04:30Z  FIM: execucao concluida (v2, sem BOM)
 
 === ARQUIVOS NA AREA DE TRABALHO (winuser) ===
 
