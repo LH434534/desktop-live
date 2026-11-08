@@ -1,0 +1,12 @@
+name: health
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: prova de vida
+        run: echo "RUNNER_OK $(date -u +%FT%TZ) $(uname -s)"
