@@ -77,6 +77,11 @@ function Finalizar([string]$motivo) {
 W "INICIO | repo=$repo | run=$env:GITHUB_RUN_NUMBER | quem=$env:USERNAME"
 try { W "disco C livre: $([math]::Round((Get-PSDrive C).Free/1GB,2)) GB" } catch {}
 & whoami 2>&1 | ForEach-Object { W "whoami: $_" }
+# o job corre como runneradmin, mas as ordens escrevem no perfil winuser
+try {
+  New-Item -ItemType Directory -Force -Path 'C:\Users\winuser\Desktop' | Out-Null
+  W 'DESKTOP_WINUSER: pronto'
+} catch { W "DESKTOP_WINUSER erro: $($_.Exception.Message)" }
 
 # ── 1. Ollama ────────────────────────────────────────────────────────────
 $oll = Get-Command ollama -ErrorAction SilentlyContinue
