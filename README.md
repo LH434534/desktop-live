@@ -24,3 +24,13 @@ Nenhuma chave ou senha e commitada neste repo. Os valores ficam em
 **Settings -> Secrets and variables -> Actions**.
 
 O repo antigo `plasma-desktop-sandbox` continua privado e parado.
+
+## Persistencia (novo)
+
+`cofre.py` cifra `Desktop` / `Documents` / `Downloads` com AES-256-GCM e
+grava `estado.cofre` neste repo. O `conectar-windows.yml` restaura no boot e
+salva a cada 10 min — os arquivos sobrevivem a morte do runner. A passphrase
+e o secret `COFRE_PASSPHRASE`; sem ela o `.cofre` e ruido.
+
+`cofre-teste.yml` valida o ciclo completo num runner real. `bootstrap-vps.sh`
+e o caminho para 24/7 definitivo (veja `PERMANENTE.md`).
