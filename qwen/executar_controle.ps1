@@ -123,9 +123,16 @@ if (-not $v) { Finalizar 'FALHA: API 11434 nao respondeu'; exit 1 }
 W "Ollama versao: $($v.version)"
 
 # ── 3. modelo em cascata (o pedido e o 7B; 3B so se nao couber) ─────────
+$instalados = (& $oll.Source list 2>&1 | Out-String)
+W "modelos ja presentes: $($instalados.Trim().Replace("`n", ' | '))"
 $tags = @('qwen2.5:7b-instruct', 'qwen2.5:7b', 'qwen2.5:3b')
 $modelo = $null
 foreach ($t in $tags) {
+  if ($instalados -match [regex]::Escape($t)) {
+    $modelo = $t
+    W "MODELO_JA_INSTALADO: $t (pulando download)"
+    break
+  }
   W "ollama pull $t (4.7 GB no 7B, pode levar minutos)"
   & $oll.Source pull $t 2>&1 |
     Select-Object -Last 5 | ForEach-Object { W "pull: $_" }
@@ -134,39 +141,41 @@ foreach ($t in $tags) {
 }
 if (-not $modelo) { Finalizar 'FALHA: nenhum modelo baixou'; exit 1 }
 
-# ── 4. ajusta o config para o modelo que realmente baixou ───────────────
+# ── 4. ajusta o config SEM BOM (PS 5.1 grava BOM e o json.loads recusa) ──
 try {
   $cfgp = Join-Path $qdir 'config.json'
   $cfg = Get-Content $cfgp -Raw | ConvertFrom-Json
   $cfg.modelo = $modelo
   $cfg.host = $api
   $cfg.max_passos = 8
-  $cfg | ConvertTo-Json -Depth 6 | Set-Content $cfgp -Encoding UTF8
-  W "config: modelo=$modelo host=$api max_passos=8 personalidade=$($cfg.personalidade)"
+  $json = $cfg | ConvertTo-Json -Depth 6
+  [IO.File]::WriteAllText($cfgp, $json, (New-Object System.Text.UTF8Encoding $false))
+  W "config (sem BOM): modelo=$modelo host=$api max_passos=8 personalidade=$($cfg.personalidade)"
 } catch { W "config erro: $($_.Exception.Message)" }
 
 $agente = Join-Path $qdir 'agente.py'
+$argsBase = @('--host', $api, '--modelo', $modelo)
 
 # ── 5. prova do protocolo de ferramentas ────────────────────────────────
 W 'VERIFICAR: /api/chat com tools'
-$vout = & python $agente --verificar 2>&1 | Out-String
+$vout = & python $agente @argsBase --verificar 2>&1 | Out-String
 W "VERIFICAR_RC=$LASTEXITCODE"
 W ($vout.Trim())
 
 # ── 6. ORDEM REAL: o jovem mexe no PC ───────────────────────────────────
 $ordem = 'da uma olhada no sistema, cria um arquivo ideia_qwen.txt na area de trabalho C:\Users\winuser\Desktop com uma ideia aleatoria sua e me conta o que voce fez'
 W "ORDEM: $ordem"
-$aout = & python $agente $ordem 2>&1 | Out-String
+$aout = & python $agente @argsBase $ordem 2>&1 | Out-String
 W "AGENTE_RC=$LASTEXITCODE"
 W ($aout.Trim())
 
 # ── 7. segunda ordem: usa PowerShell de verdade ────────────────────────
 $ordem2 = 'usa o PowerShell para listar os 5 processos que mais gastam CPU e escreve o resultado em C:\Users\winuser\Desktop\processos_qwen.txt'
 W "ORDEM2: $ordem2"
-$aout2 = & python $agente $ordem2 2>&1 | Out-String
+$aout2 = & python $agente @argsBase $ordem2 2>&1 | Out-String
 W "AGENTE2_RC=$LASTEXITCODE"
 W ($aout2.Trim())
 
 # ── 8. evidencias ───────────────────────────────────────────────────────
-Finalizar 'execucao concluida'
+Finalizar 'execucao concluida (v2, sem BOM)'
 exit 0
