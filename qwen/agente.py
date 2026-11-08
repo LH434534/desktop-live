@@ -215,6 +215,16 @@ class Agente:
             self.console(f"\n-- passo {passo} --")
             if not chamadas:
                 final = (msg.get("content") or "").strip() or final
+                # O 7B as vezes devolve message completamente vazia. Um lembrete
+                # curto faz ele voltar a chamar ferramentas em vez de desistir.
+                if not final or final == "(sem resposta final)":
+                    self.console("(resposta vazia -> insistindo uma vez)")
+                    self.historico.append({"role": "assistant", "content": ""})
+                    self.historico.append({
+                        "role": "user",
+                        "content": "Nao deixe a resposta vazia. Chame uma ferramenta agora "
+                                   "para cumprir o pedido e depois `falar` com o resumo."})
+                    continue
                 self.console("Qwen: " + final[:600])
                 return final
             self.historico.append({"role": "assistant",
@@ -229,7 +239,8 @@ class Agente:
                 self.historico.append({"role": "tool", "name": nome,
                                        "content": resultado})
                 if nome == "falar":
-                    return str(args.get("mensagem", final))
+                    return str(args.get("mensagem") or final
+                               or "pronto, fiz o que voce pediu")
         return f"limite de {self.max_passos} passos atingido. Último: {final[:300]}"
 
 
