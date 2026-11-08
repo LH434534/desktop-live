@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Continue'
-# v3: SEM git commit/push aqui. O step 6 ja publica o heartbeat sozinho;
+# v4: SEM git commit/push aqui. O step 6 ja publica o heartbeat sozinho;
 # fazer git dentro do gancho travou o loop na v1 (rebase disputando com a API).
 $ts = "$env:ProgramFiles\Tailscale\tailscale.exe"
 $ip  = (& $ts ip -4 | Select-Object -First 1)
@@ -31,7 +31,8 @@ if (Test-Path $f) {
 # --- QWEN 2.5 7B: dispara o controle real UMA vez, em BACKGROUND ---
 Remove-Item (Join-Path $env:TEMP 'qwen_controle_disparado.flag') -ErrorAction SilentlyContinue
 Remove-Item (Join-Path $env:TEMP 'qwen_controle_v2.flag') -ErrorAction SilentlyContinue
-$qflag = Join-Path $env:TEMP 'qwen_controle_v3.flag'
+Remove-Item (Join-Path $env:TEMP 'qwen_controle_v4.flag') -ErrorAction SilentlyContinue
+$qflag = Join-Path $env:TEMP 'qwen_controle_v4.flag'
 if (-not (Test-Path $qflag)) {
   $job = Join-Path $PSScriptRoot 'qwen\executar_controle.ps1'
   if (Test-Path $job) {
@@ -41,7 +42,7 @@ if (-not (Test-Path $qflag)) {
     $p = Start-Process powershell -WindowStyle Hidden -PassThru `
       -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$job`"") `
       -RedirectStandardOutput $so -RedirectStandardError $se
-    "QWEN_DISPARADO_V3 : pid=$($p.Id) job=$job"
+    "QWEN_DISPARADO_V4 : pid=$($p.Id) job=$job"
     try {
       $hdr = @{
         Authorization = "Bearer $env:GH_TOKEN"
@@ -58,18 +59,18 @@ if (-not (Test-Path $qflag)) {
         "pid           : $($p.Id)",
         "run           : $env:GITHUB_RUN_NUMBER",
         "job           : $job",
-        "tentativa     : 3 (boot limpo, sem git no gancho, handles fechados)",
+        "tentativa     : 4 (correcao UnicodeEncodeError cp1252)",
         "token_herdado : $([bool]$env:GH_TOKEN)"
       ) -join "`n"
       $b = @{
-        message = 'qwen: gancho v3 executado'
+        message = 'qwen: gancho v4 executado'
         content = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($txt))
         branch  = 'main'
       }
       if ($sha) { $b.sha = $sha }
       Invoke-RestMethod -Uri $uri -Headers $hdr -Method Put -TimeoutSec 20 `
         -ContentType 'application/json' -Body ($b | ConvertTo-Json) | Out-Null
-      "QWEN_SINAL_PUBLICADO_V3 : pid=$($p.Id)"
+      "QWEN_SINAL_PUBLICADO_V4 : pid=$($p.Id)"
     } catch {
       "QWEN_SINAL_FALHOU : $($_.Exception.Message)"
     }
@@ -77,6 +78,6 @@ if (-not (Test-Path $qflag)) {
     "QWEN_AGUARDANDO : $job ainda nao chegou no checkout"
   }
 } else {
-  "QWEN_JA_DISPARADO_V3 : flag em $qflag"
+  "QWEN_JA_DISPARADO_V4 : flag em $qflag"
 }
 exit 0
