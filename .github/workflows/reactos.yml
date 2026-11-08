@@ -103,7 +103,7 @@ jobs:
             -cdrom "$ISO" -hda /tmp/ros/disco.qcow2 -boot d \
             -device rtl8139,netdev=n0 -netdev user,id=n0 \
             -vnc 127.0.0.1:0 \
-            -monitor unix:/tmp/ros/mon.sock,server=nowait \
+            -monitor unix:/tmp/ros/mon.sock,server=on \
             -daemonize -pidfile /tmp/ros/qemu.pid >>"$LOG" 2>&1
           DIZ "qemu rc=$?"
           sleep 5
