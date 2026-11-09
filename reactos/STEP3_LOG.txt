@@ -1,4 +1,4 @@
-=== inicio 13:57:56 ===
+=== inicio 19:00:29 ===
 ISO=/tmp/ros/ReactOS-0.4.16-i386.iso
 === tailscale ===
 Installing Tailscale for ubuntu jammy, using method apt
@@ -13,15 +13,15 @@ deb [signed-by=/usr/share/keyrings/tailscale-archive-keyring.gpg] https://pkgs.t
 + sudo chmod 0644 /etc/apt/sources.list.d/tailscale.list
 + sudo apt-get update
 Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [144 B]
-Hit:2 http://azure.archive.ubuntu.com/ubuntu jammy InRelease
 Hit:6 https://packages.microsoft.com/ubuntu/22.04/prod jammy InRelease
+Get:7 https://pkgs.tailscale.com/stable/ubuntu jammy InRelease
+Hit:2 http://azure.archive.ubuntu.com/ubuntu jammy InRelease
 Hit:3 http://azure.archive.ubuntu.com/ubuntu jammy-updates InRelease
 Hit:4 http://azure.archive.ubuntu.com/ubuntu jammy-backports InRelease
+Get:8 https://pkgs.tailscale.com/stable/ubuntu jammy/main amd64 Packages [16.8 kB]
 Hit:5 http://azure.archive.ubuntu.com/ubuntu jammy-security InRelease
-Get:7 https://pkgs.tailscale.com/stable/ubuntu jammy InRelease
-Get:8 https://pkgs.tailscale.com/stable/ubuntu jammy/main all Packages [351 B]
-Get:9 https://pkgs.tailscale.com/stable/ubuntu jammy/main amd64 Packages [16.8 kB]
-Fetched 23.8 kB in 1s (42.8 kB/s)
+Get:9 https://pkgs.tailscale.com/stable/ubuntu jammy/main all Packages [351 B]
+Fetched 23.8 kB in 1s (47.4 kB/s)
 Reading package lists...
 + [ -n  ]
 + sudo apt-get install -y tailscale tailscale-archive-keyring
@@ -30,12 +30,12 @@ Building dependency tree...
 Reading state information...
 The following NEW packages will be installed:
   tailscale tailscale-archive-keyring
-0 upgraded, 2 newly installed, 0 to remove and 34 not upgraded.
+0 upgraded, 2 newly installed, 0 to remove and 35 not upgraded.
 Need to get 40.8 MB of archives.
 After this operation, 78.3 MB of additional disk space will be used.
 Get:1 https://pkgs.tailscale.com/stable/ubuntu jammy/main amd64 tailscale amd64 1.104.5 [40.8 MB]
 Get:2 https://pkgs.tailscale.com/stable/ubuntu jammy/main all tailscale-archive-keyring all 1.35.181 [3082 B]
-Fetched 40.8 MB in 0s (157 MB/s)
+Fetched 40.8 MB in 0s (135 MB/s)
 Selecting previously unselected package tailscale.
 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 266906 files and directories currently installed.)
 Preparing to unpack .../tailscale_1.104.5_amd64.deb ...
@@ -61,32 +61,29 @@ No VM guests are running outdated hypervisor (qemu) binaries on this host.
 Installation complete! Log in to start using Tailscale by running:
 
 sudo tailscale up
-TS_IP=100.124.151.71
-100.124.151.71  reactos-seu-1       thiairoh@  linux    -                           
-100.119.28.8    a32-de-thiairo      thiairoh@  android  offline, last seen 17h ago  
-100.119.100.29  cue-046b262ac98b    thiairoh@  linux    offline, last seen 10d ago  
-100.116.171.25  cue-0609f7968656    thiairoh@  linux    offline, last seen 8h ago   
-100.65.191.12   reactos-seu         thiairoh@  linux    offline, last seen 1m ago   
-100.88.50.101   watchdog-windows-1  thiairoh@  linux    offline, last seen 50m ago  
-100.116.101.27  watchdog-windows-2  thiairoh@  linux    offline, last seen 30m ago  
-100.109.98.47   watchdog-windows-3  thiairoh@  linux    offline, last seen 20m ago  
-100.78.178.27   watchdog-windows-4  thiairoh@  linux    offline, last seen 10m ago  
-100.127.155.18  watchdog-windows-5  thiairoh@  linux    offline, last seen 40m ago  
-100.75.186.67   watchdog-windows-6  thiairoh@  linux    offline, last seen 1m ago   
-100.95.135.43   watchdog-windows    thiairoh@  linux    offline, last seen 1h ago   
-100.121.230.49  windows-plasma      thiairoh@  windows  -                           
+TS_IP=100.116.183.3
+100.116.183.3   reactos-seu         thiairoh@  linux    -                           
+100.119.28.8    a32-de-thiairo      thiairoh@  android  offline, last seen 22h ago  
+100.119.100.29  cue-046b262ac98b    thiairoh@  linux    offline, last seen 11d ago  
+100.116.171.25  cue-0609f7968656    thiairoh@  linux    offline, last seen 13h ago  
+100.124.151.71  reactos-seu-1       thiairoh@  linux    offline, last seen 1m ago   
+100.105.128.46  watchdog-windows-2  thiairoh@  linux    offline, last seen 26m ago  
+100.119.161.21  watchdog-windows-3  thiairoh@  linux    offline, last seen 16m ago  
+100.125.236.93  watchdog-windows-5  thiairoh@  linux    offline, last seen 56m ago  
+100.125.160.2   watchdog-windows    thiairoh@  linux    offline, last seen 6m ago   
+100.86.243.52   windows-plasma-1    thiairoh@  windows  -                           
 === qemu ===
 qemu rc=0
-qemu_pid: 5081
-=== websockify em 100.124.151.71:6080 ===
+qemu_pid: 5010
+=== websockify em 100.116.183.3:6080 ===
 State  Recv-Q Send-Q                          Local Address:Port  Peer Address:PortProcess
-LISTEN 0      4096                            127.0.0.53%lo:53         0.0.0.0:*          
-LISTEN 0      128                                   0.0.0.0:22         0.0.0.0:*          
-LISTEN 0      100                            100.124.151.71:6080       0.0.0.0:*          
 LISTEN 0      500                                   0.0.0.0:8084       0.0.0.0:*          
-LISTEN 0      4096                100.124.151.71%tailscale0:32968      0.0.0.0:*          
 LISTEN 0      1                                   127.0.0.1:5900       0.0.0.0:*          
-LISTEN 0      4096   [fd7a:115c:a1e0::172f:9748]%tailscale0:36272         [::]:*          
+LISTEN 0      4096                            127.0.0.53%lo:53         0.0.0.0:*          
+LISTEN 0      100                             100.116.183.3:6080       0.0.0.0:*          
+LISTEN 0      4096                 100.116.183.3%tailscale0:61531      0.0.0.0:*          
+LISTEN 0      128                                   0.0.0.0:22         0.0.0.0:*          
+LISTEN 0      4096   [fd7a:115c:a1e0::652f:b704]%tailscale0:42153         [::]:*          
 LISTEN 0      128                                      [::]:22            [::]:*          
-portas: LISTEN 0      100                            100.124.151.71:6080       0.0.0.0:*           LISTEN 0      1                                   127.0.0.1:5900       0.0.0.0:*           
+portas: LISTEN 0      1                                   127.0.0.1:5900       0.0.0.0:*           LISTEN 0      100                             100.116.183.3:6080       0.0.0.0:*           
 vnc_publico: NAO (bind 127.0.0.1:5900)
