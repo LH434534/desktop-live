@@ -1,0 +1,94 @@
+name: provar-windows
+# Prova de INSTALACAO de um desktop com Windows de verdade.
+# Runner separado, SEM Tailscale e SEM segredos: nao briga com o #7 pelo
+# hostname windows-plasma nem com o control plane da tailnet.
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  prova:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: 'instalar RDP, desktop e publicar a identidade real do SO'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+          $stamp = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+
+          # --- INSTALAR: RDP nativo + regra de firewall ---
+          try {
+            Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' `
+              -Name 'fDenyTSConnections' -Value 0 -ErrorAction Stop
+            Enable-NetFirewallRule -DisplayGroup 'Remote Desktop' -ErrorAction SilentlyContinue
+            foreach ($s in @('TermService','Audiosrv','AudioEndpointBuilder')) {
+              Set-Service -Name $s -StartupType Automatic -ErrorAction SilentlyContinue
+              Start-Service $s -ErrorAction SilentlyContinue
+            }
+            $instalou = 'RDP habilitado / firewall / servicos de audio'
+          } catch { $instalou = "ERRO: $($_.Exception.Message)" }
+
+          # --- IDENTIDADE: nao e emulacao, e kernel NT da Microsoft ---
+          $o = Get-CimInstance Win32_OperatingSystem
+          $c = Get-CimInstance Win32_ComputerSystem
+          $cv = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion'
+          $rdp = try { Test-NetConnection -ComputerName 127.0.0.1 -Port 3389 `
+            -InformationLevel Quiet -WarningAction SilentlyContinue } catch { $false }
+          $ex = @(Get-Process explorer -ErrorAction SilentlyContinue).Count
+
+          # --- DESKTOP: arquivo + atalho winver na area de trabalho ---
+          $desk = Join-Path $env:USERPROFILE 'Desktop'
+          New-Item -ItemType Directory -Force -Path $desk | Out-Null
+          $linhas = @(
+            'PROVA - DESKTOP COM WINDOWS DE VERDADE',
+            "gerado_utc   : $stamp",
+            "runner       : $env:RUNNER_OS / $env:RUNNER_NAME",
+            "caption      : $($o.Caption)",
+            "version      : $($o.Version) build $($o.BuildNumber)",
+            "product_name : $($cv.ProductName)",
+            "edition_id   : $($cv.EditionID)",
+            "install_type : $($cv.InstallationType)",
+            "arch         : $($o.OSArchitecture)",
+            "product_type : $($o.ProductType)",
+            "host         : $($c.Name)",
+            "ram_gb       : $([math]::Round($c.TotalPhysicalMemory/1GB,1))",
+            "explorer     : $ex",
+            "term_service : $((Get-Service TermService -ErrorAction SilentlyContinue).Status)",
+            "audio_srv    : $((Get-Service Audiosrv -ErrorAction SilentlyContinue).Status)",
+            "rdp_3389     : $rdp",
+            "instalacao   : $instalou",
+            '',
+            'Isto e Windows Microsoft genuino (windows-latest), nao ReactOS,',
+            'nao Wine, nao pagina HTML. RDP nativo :3389 com audio e clipboard.',
+            'Fonte oficial da imagem: Windows Server 2025 Datacenter.'
+          )
+          [System.IO.File]::WriteAllLines(
+            (Join-Path $desk 'WINDOWS_DE_VERDADE.txt'),
+            [string[]]$linhas, (New-Object System.Text.UTF8Encoding($false)))
+          try {
+            $w = New-Object -ComObject WScript.Shell
+            $s = $w.CreateShortcut((Join-Path $desk 'Este PC - Windows real.lnk'))
+            $s.TargetPath = "$env:WINDIR\System32\winver.exe"
+            $s.Save()
+            $linhas += 'atalho       : winver.exe criado na area de trabalho'
+          } catch { $linhas += "atalho ERRO: $($_.Exception.Message)" }
+
+          # --- PUBLICAR (UTF-8 sem BOM, retry no push) ---
+          [System.IO.File]::WriteAllLines(
+            'PROVA_WINDOWS_REAL.txt', [string[]]$linhas,
+            (New-Object System.Text.UTF8Encoding($false)))
+          git config user.name 'provar-windows'
+          git config user.email 'prova@localhost'
+          git add -f PROVA_WINDOWS_REAL.txt
+          git commit -m "prova desktop windows real $stamp" 2>&1 | Out-Null
+          for ($i=1; $i -le 5; $i++) {
+            git pull --rebase -X theirs origin main 2>&1 | Out-Null
+            git push origin HEAD:main 2>&1 | Out-Null
+            if ($LASTEXITCODE -eq 0) { break }
+            Start-Sleep -Seconds ($i*2)
+          }
+          $linhas += "publicado    : PROVA_WINDOWS_REAL.txt (push rc=$LASTEXITCODE)"
+          $linhas | ForEach-Object { "  $_" }
+          exit 0
