@@ -1,0 +1,22 @@
+PROVA - DESKTOP COM WINDOWS DE VERDADE
+gerado_utc   : 2026-11-09T04:25:43Z
+runner       : Windows / GitHub Actions 1000006608
+caption      : Microsoft Windows Server 2025 Datacenter
+version      : 10.0.26100 build 26100
+product_name : Windows Server 2025 Datacenter
+edition_id   : ServerDatacenter
+install_type : Server
+arch         : 64-bit
+product_type : 3
+host         : runnervmm7ud1
+ram_gb       : 16
+explorer     : 1
+term_service : Running
+audio_srv    : Running
+rdp_3389     : True
+instalacao   : RDP habilitado / firewall / servicos de audio
+
+Isto e Windows Microsoft genuino (windows-latest), nao ReactOS,
+nao Wine, nao pagina HTML. RDP nativo :3389 com audio e clipboard.
+Fonte oficial da imagem: Windows Server 2025 Datacenter.
+atalho       : winver.exe criado na area de trabalho
