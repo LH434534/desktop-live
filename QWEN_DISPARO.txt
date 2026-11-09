@@ -1,5 +1,5 @@
-disparado_utc : 2026-11-08T19:43:32Z
-pid : 2316
-run : 6
+disparado_utc : 2026-11-09T01:01:28Z
+pid : 4044
+run : 7
 tentativa : 6 (kit por hash, fallback de ferramenta)
 scripts_baixados : 5
