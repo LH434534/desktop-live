@@ -1,5 +1,5 @@
 DESKTOP COM WINDOWS DE VERDADE
-gerado_utc   : 2026-11-10T03:29:21Z
+gerado_utc   : 2026-11-10T08:47:08Z
 caption      : Microsoft Windows Server 2025 Datacenter
 version      : 10.0.26100 build 26100
 product_name : Windows Server 2025 Datacenter
@@ -14,8 +14,8 @@ explorer     : 1 processo(s)
 term_service : Running
 audio_srv    : Running
 rdp_3389     : True
-tailnet_ip   : 100.119.18.0
-magicdns     : windows-plasma-1.taild2d531.ts.net.
+tailnet_ip   : 100.70.131.103
+magicdns     : windows-plasma.taild2d531.ts.net.
 
 Isto e um SO Microsoft genuino, nao ReactOS, nao Wine, nao pagina HTML.
 Imagem: GitHub-hosted windows-latest = Windows Server 2025 Datacenter.
