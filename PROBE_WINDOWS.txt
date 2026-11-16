@@ -1,8 +1,10 @@
-data_utc : 2026-11-16T03:20:43Z
+data_utc : 2026-11-16T09:53:48Z
 alvo     : 100.100.160.1
 CR_bytes : 45 | head: 0300002d28e00000
-tentativa 1 resposta: 030000130ed00000123400022f080002
-TCP_3389_ABERTA  : True
-RDP_X224_CONFIRM : True
-RDP_ALCANCAVEL   : True
-ESTADO           : OK
+tentativa 1 erro: TimeoutError timed out
+tentativa 2 erro: TimeoutError timed out
+tentativa 3 erro: TimeoutError timed out
+TCP_3389_ABERTA  : False
+RDP_X224_CONFIRM : False
+RDP_ALCANCAVEL   : False
+ESTADO           : QUEDA
