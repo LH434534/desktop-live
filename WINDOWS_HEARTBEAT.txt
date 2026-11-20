@@ -1,7 +1,7 @@
-ultimo_utc : 2026-11-20T03:55:39Z
-run        : 54
-ip         : 100.110.20.121
-host_fixo : windows-plasma-1.taild2d531.ts.net.
+ultimo_utc : 2026-11-20T04:11:06Z
+run        : 55
+ip         : 100.100.204.5
+host_fixo : windows-plasma.taild2d531.ts.net.
 rdp_3389   : True
 term_service: Running
 explorer   : 1
