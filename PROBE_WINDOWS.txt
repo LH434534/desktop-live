@@ -1,5 +1,5 @@
-data_utc : 2026-11-22T19:30:47Z
-alvo     : 100.109.147.53
+data_utc : 2026-11-22T19:46:15Z
+alvo     : 100.95.104.47
 CR_bytes : 45 | head: 0300002d28e00000
 tentativa 1 resposta: 030000130ed00000123400022f080002
 TCP_3389_ABERTA  : True
