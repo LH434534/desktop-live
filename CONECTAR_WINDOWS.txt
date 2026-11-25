@@ -1,19 +1,19 @@
 # CONEXAO — WINDOWS REAL via RDP
-data_utc      : 2026-11-25T11:15:59Z
+data_utc      : 2026-11-25T22:43:47Z
 so            : Microsoft Windows Server 2025 Datacenter build 26100
-run           : 79
+run           : 80
 
-Address       : 100.97.171.4:3389
+Address       : 100.113.157.43:3389
 Host FIXO     : windows-plasma.taild2d531.ts.net.   <- use este, nao muda entre boots
 Usuario       : winuser
 Senha         : (definida via secret, informada no chat)
 App no celular: RD Client / Windows App (Microsoft Remote Desktop)
               (AVNC nao fala RDP - use o app da Microsoft)
 
-ip_tailnet    : 100.97.171.4
+ip_tailnet    : 100.113.157.43
 dns_tailnet   : windows-plasma.taild2d531.ts.net.
 rdp_local     : True
-screenshot    : windows_desktop.png (200070 bytes)
+screenshot    : windows_desktop.png (220328 bytes)
 audio         : NATIVO via RDP (resolve o AUDIO_FALHOU do VNC)
 clipboard     : compartilhado
 drives        : redirecionaveis
