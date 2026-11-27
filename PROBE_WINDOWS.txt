@@ -1,4 +1,4 @@
-data_utc : 2026-11-27T03:39:35Z
+data_utc : 2026-11-27T03:49:40Z
 alvo     : 100.84.62.121
 CR_bytes : 45 | head: 0300002d28e00000
 tentativa 1 resposta: 030000130ed00000123400022f080002
